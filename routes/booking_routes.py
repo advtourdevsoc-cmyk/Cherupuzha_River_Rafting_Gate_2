@@ -168,7 +168,7 @@ def book():
             # If current time > slot start time, block it. 
             # (Optionally add buffer, e.g. forbid booking 30 mins before)
             if now.hour > slot_h or (now.hour == slot_h and now.minute > slot_m):
-                flash("We're sorry, today's booking window is closed. For any help or urgent bookings, please contact the rafting team at 8877994476.", 'error')
+                flash("We're sorry, today's booking window is closed. For any help or urgent bookings, please contact the rafting team at 9544112264.", 'error')
                 return redirect(url_for('booking.book'))
 
 
