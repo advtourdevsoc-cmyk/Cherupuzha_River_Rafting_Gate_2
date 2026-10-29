@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-md mx-auto bg-white p-6 rounded shadow">
+  <h2 class="text-lg font-bold mb-3">Track Your Booking</h2>
+  <p class="text-gray-600 text-sm mb-4">Enter the email and phone number used for your booking to find its status.</p>
+  
+  <form method="POST">
+    <div class="mb-4">
+      <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+      <input name="email" id="email" placeholder="your@email.com" type="email" class="border border-gray-300 p-2 w-full mb-1 rounded" required>
+      <p class="text-xs text-gray-500">The email you used when making the booking</p>
+    </div>
+    
+    <div class="mb-4">
+      <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+      <input name="phone" id="phone" placeholder="08XXXXXXXXX" class="border border-gray-300 p-2 w-full mb-1 rounded" required>
+      <p class="text-xs text-gray-500">The phone number you used when making the booking</p>
+    </div>
+    
+    <div class="text-right">
+      <button type="submit" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded transition">Find My Booking</button>
+    </div>
+  </form>
+  
+  <hr class="my-6">
+  
+  <div class="bg-blue-50 border border-blue-200 rounded p-4 text-sm text-blue-800">
+    <p><strong>Note:</strong> We'll search for the most recent booking using the provided email and phone number. If you have multiple bookings, the latest one will be shown.</p>
+  </div>
+</div>
+{% endblock %}

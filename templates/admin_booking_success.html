@@ -1,0 +1,135 @@
+{% extends "admin_base.html" %}
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-4">
+  <!-- Dedicated Admin Booking Success Card -->
+  <div class="bg-white p-6 rounded shadow border border-gray-200">
+    <div class="text-center mb-6 border-b border-gray-100 pb-5">
+      <div class="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3 text-3xl font-bold shadow-sm">
+        ✓
+      </div>
+      <h2 class="text-2xl font-bold text-gray-900">Booking Created Successfully</h2>
+      <div class="mt-2 flex items-center justify-center gap-2 flex-wrap">
+        <span class="text-xs bg-teal-100 text-teal-800 font-semibold px-3 py-1 rounded-full border border-teal-200">
+          Administrator Created Booking
+        </span>
+        <span class="text-xs bg-emerald-100 text-emerald-800 font-semibold px-3 py-1 rounded-full border border-emerald-200">
+          Confirmed
+        </span>
+      </div>
+      <p class="text-xs text-gray-500 mt-2 font-mono">
+        Booking ID: <span class="font-bold text-gray-800">{{ booking_summary.id }}</span>
+      </p>
+    </div>
+
+    <!-- Booking Details Section -->
+    <div class="space-y-3 text-sm mb-6 border-b border-gray-100 pb-5">
+      <div class="flex justify-between items-center">
+        <span class="text-gray-600 font-medium">Customer Name:</span>
+        <span class="font-bold text-gray-900">{{ booking_summary.name }}</span>
+      </div>
+
+      {% if booking_summary.email %}
+      <div class="flex justify-between items-center">
+        <span class="text-gray-600 font-medium">Email Address:</span>
+        <span class="font-mono text-gray-800 text-xs">{{ booking_summary.email }}</span>
+      </div>
+      {% endif %}
+
+      <div class="flex justify-between items-center">
+        <span class="text-gray-600 font-medium">Phone Number:</span>
+        <span class="font-mono font-semibold text-gray-800">+91 {{ booking_summary.phone }}</span>
+      </div>
+
+      {% if booking_summary.location %}
+      <div class="flex justify-between items-center">
+        <span class="text-gray-600 font-medium">Location:</span>
+        <span class="font-semibold text-gray-800">{{ booking_summary.location }}</span>
+      </div>
+      {% endif %}
+
+      <div class="flex justify-between items-center">
+        <span class="text-gray-600 font-medium">Date & Slot:</span>
+        <span class="font-semibold text-teal-800">{{ booking_summary.date }} at {{ booking_summary.slot }}</span>
+      </div>
+
+      <div class="flex justify-between items-center">
+        <span class="text-gray-600 font-medium">Group Size:</span>
+        <span class="font-semibold text-gray-800">{{ booking_summary.group_size }} person(s)</span>
+      </div>
+
+      <div class="flex justify-between items-center">
+        <span class="text-gray-600 font-medium">Booking Status:</span>
+        <span class="inline-flex items-center bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+          {{ booking_summary.status }}
+        </span>
+      </div>
+
+      {% if booking_summary.raft_allocations %}
+      <div class="flex justify-between items-center">
+        <span class="text-gray-600 font-medium">Allocated Rafts:</span>
+        <span class="font-semibold text-teal-700">
+          {% for r in booking_summary.raft_allocations %}Raft #{{ r }}{% if not loop.last %}, {% endif %}{% endfor %}
+        </span>
+      </div>
+      {% endif %}
+
+      <div class="flex justify-between items-center text-xs">
+        <span class="text-gray-500 font-medium">Created By:</span>
+        <span class="text-gray-700 font-semibold">{{ booking_summary.created_by }} {% if booking_summary.created_at_ist %}<span class="text-gray-400 font-normal">({{ booking_summary.created_at_ist }})</span>{% endif %}</span>
+      </div>
+    </div>
+
+    <!-- Pricing Summary Breakdown Box matching Customer Confirmation Aesthetics -->
+    <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 space-y-3 text-sm mb-6">
+      <div class="flex justify-between items-center">
+        <span class="text-xs text-gray-600 font-medium">Subtotal Price:</span>
+        <span class="text-base font-semibold text-blue-600">₹{{ "%.2f"|format(booking_summary.price_amount) }}</span>
+      </div>
+
+      {% if booking_summary.per_person_discount > 0 %}
+      <div class="flex justify-between items-center text-xs text-amber-800 font-medium bg-amber-50 p-2 rounded border border-amber-200">
+        <span>🏷️ Per Person Discount:</span>
+        <span>-₹{{ "%.2f"|format(booking_summary.per_person_discount) }} / head</span>
+      </div>
+      {% endif %}
+
+      {% if booking_summary.coupon_discount_applied > 0 %}
+      <div class="p-2.5 bg-emerald-50 border border-emerald-300 rounded-lg flex items-center justify-between text-xs font-bold text-emerald-800">
+        <span>🎟️ Coupon Applied: <span class="font-mono text-sm">{{ booking_summary.coupon_code }}</span></span>
+        <span class="bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded">-₹{{ "%.2f"|format(booking_summary.coupon_discount_applied) }}</span>
+      </div>
+      {% endif %}
+
+      <hr class="border-blue-200 my-1">
+
+      <div class="flex justify-between items-center">
+        <span class="text-xs text-gray-600 font-medium">Total Booking Amount:</span>
+        <span class="text-2xl font-bold text-green-600">₹{{ "%.2f"|format(booking_summary.total_amount) }}</span>
+      </div>
+
+      <div class="flex justify-between items-center">
+        <span class="text-xs text-gray-600 font-medium">Recorded Advance Paid ({{ booking_summary.payment_mode }}):</span>
+        <span class="text-xl font-bold text-orange-600">₹{{ "%.2f"|format(booking_summary.advance_amount) }}</span>
+      </div>
+
+      <div class="flex justify-between items-center">
+        <span class="text-xs text-gray-600 font-medium">Remaining Balance Due (to pay on arrival):</span>
+        <span class="text-xl font-bold text-blue-600">₹{{ "%.2f"|format(booking_summary.balance_amount) }}</span>
+      </div>
+
+      {% if booking_summary.admin_notes %}
+      <div class="pt-2 border-t border-blue-200 text-xs text-gray-700">
+        <span class="font-semibold text-gray-800">Admin Notes:</span> {{ booking_summary.admin_notes }}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Back to Admin Page Button (Exact Label: Back to Admin Page) -->
+    <div class="mt-6 text-center pt-2">
+      <a href="{{ url_for('admin.admin_booking') }}" class="bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-bold py-3 px-8 rounded-lg text-base shadow transition-colors inline-block w-full md:w-auto">
+        Back to Admin Page
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cherupuzha River Rafting</title>
+  <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='images/icon.jpeg') }}">
+  <!-- Meta Pixel Code -->
+  <script>
+    !function (f, b, e, v, n, t, s) {
+      if (f.fbq) return; n = f.fbq = function () {
+        n.callMethod ?
+          n.callMethod.apply(n, arguments) : n.queue.push(arguments)
+      };
+      if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0';
+      n.queue = []; t = b.createElement(e); t.async = !0;
+      t.src = v; s = b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t, s)
+    }(window, document, 'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1654217349700039');
+    fbq('track', 'PageView');
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+      src="https://www.facebook.com/tr?id=1654217349700039&ev=PageView&noscript=1" /></noscript>
+  <!-- End Meta Pixel Code -->
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+
+<body>
+  <!-- Navigation -->
+  <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+    <div class="container">
+      <a class="navbar-brand" href="{{ url_for('booking.home') }}">
+        <img src="{{ url_for('static', filename='images/rafting-nav-icon.png') }}" alt="Cherupuzha River Rafting Icon"
+          class="navbar-icon me-2" />
+        <span>Cherupuzha River Rafting</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="#home">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="#time-slots">Time Slots</a></li>
+          <li class="nav-item"><a class="nav-link" href="#why-us">Why Choose Us</a></li>
+          <li class="nav-item"><a class="nav-link" href="#gallery">Gallery</a></li>
+          <li class="nav-item"><a class="nav-link" href="#location">Location</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('booking.track_booking') }}">Track Booking</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">Admin</a></li>
+
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Flash Messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="container mt-3">
+    {% for category, message in messages %}
+    <div
+      class="alert alert-{{ 'danger' if category == 'error' else 'success' if category == 'success' else 'warning' }} alert-dismissible fade show"
+      role="alert">
+      {{ message }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+
+  <!-- Hero Section -->
+  <header class="hero-section" id="home">
+    <div class="container text-center text-white py-5">
+      <h1 class="display-4 fw-bold mb-3 hero-title">
+        <span class="hero-title-main">Cherupuzha River Rafting</span> <span class="hero-title-sub">Gate 2</span>
+      </h1>
+      <p class="lead mb-4">Experience the thrill of white water rapids surrounded by breathtaking mountain landscapes.
+      </p>
+      <!--<a href="{{ url_for('booking.book') }}" class="btn btn-primary btn-lg px-5 py-3">Start Booking</a>-->
+      <div class="d-flex flex-column align-items-center gap-3">
+        <a href="#instructions" class="btn btn-instructions btn-lg px-4 py-3">
+          Know Before You Go
+        </a>
+
+        <a href="{{ url_for('booking.book') }}" class="btn btn-primary btn-lg px-5 py-3">
+          Book Your Adventure
+        </a>
+      </div>
+
+
+    </div>
+  </header>
+
+  <!-- Time Slots Section -->
+  <section class="py-5 bg-light" id="time-slots">
+    <div class="container">
+      <h2 class="text-center section-title">Choose Your Adventure Time</h2>
+      <p class="text-center lead mb-5">Four exciting time slots available daily</p>
+      <div class="row justify-content-center g-4">
+        <div class="col-lg-3 col-md-6">
+          <div class="card text-center p-3">
+            <h4>6.45 AM </h4>
+            <p>Best for photography
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+          <div class="card text-center p-3">
+            <h4>9.15 AM </h4>
+            <p>Most popular slot
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+          <div class="card text-center p-3">
+            <h4>12:15 PM </h4>
+            <p>Most popular slot
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+          <div class="card text-center p-3">
+            <h4>3.00 PM </h4>
+            <p>Sunset special
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Why Choose Us -->
+  <section class="py-5" id="why-us">
+    <div class="container">
+      <h2 class="text-center section-title">Why Choose Cherupuzha River Rafting?</h2>
+      <p class="text-center lead mb-5">Unmatched safety and premium experiences</p>
+      <div class="row g-4">
+        <div class="col-md-4 text-center">
+          <i class="fas fa-shield-alt fa-3x mb-3 text-primary"></i>
+          <h4>Safety First</h4>
+          <p>Professional guides, briefings, and premium equipment ensure full safety.</p>
+        </div>
+        <div class="col-md-4 text-center">
+          <i class="fas fa-users fa-3x mb-3 text-success"></i>
+          <h4>Group Adventures</h4>
+          <p>Perfect for families, friends, and corporate groups.</p>
+        </div>
+        <div class="col-md-4 text-center">
+          <i class="fas fa-map-marker-alt fa-3x mb-3 text-warning"></i>
+          <h4>Scenic Location</h4>
+          <p>Adventure through pristine mountain rivers and lush forests.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Gallery Section -->
+  <section class="py-5 bg-light" id="gallery">
+    <div class="container">
+      <h2 class="text-center section-title">Adventure Gallery</h2>
+      <p class="text-center lead mb-5">See the thrill in action</p>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div class="gallery-item">
+            <img src="{{ url_for('static', filename='images/images/main4.jpg') }}" class="img-fluid rounded"
+              alt="River Rafting Adventure 1"
+              onerror="this.src='https://via.placeholder.com/400x300/1a5276/ffffff?text=Rafting+Adventure+1'">
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="gallery-item">
+            <img src="{{ url_for('static', filename='images/images/main2.jpg') }}" class="img-fluid rounded"
+              alt="River Rafting Adventure 2"
+              onerror="this.src='https://via.placeholder.com/400x300/2980b9/ffffff?text=Rafting+Adventure+2'">
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="gallery-item">
+            <img src="{{ url_for('static', filename='images/images/main3.jpg') }}" class="img-fluid rounded"
+              alt="River Rafting Adventure 3"
+              onerror="this.src='https://via.placeholder.com/400x300/3498db/ffffff?text=Rafting+Adventure+3'">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Instructions Section -->
+  <section class="instructions-section py-4" id="instructions">
+    <div class="container mx-auto px-4" style="max-width: 900px;">
+      <div class="instruction-box p-5 shadow-sm bg-light rounded-4">
+
+        <h3 class="fw-bold text-primary mb-3 text-center">
+          🛶 Adventure Safety & Instructions
+        </h3>
+
+        <p class="text-muted text-center mb-4">
+          Welcome to <strong>Cherupuzha River Rafting!</strong>
+          Before you begin your thrilling ride, please read and follow these important
+          instructions to ensure your safety and fun.
+        </p>
+
+        <ul class="mx-auto text-start list-none p-0" style="max-width:720px;">
+
+          <li style="display:grid;grid-template-columns:24px 1fr;column-gap:12px;margin-bottom:12px;">
+            <span style="color:#6b21a8;font-weight:600;">✓</span>
+            <span>
+              Arrive at least <strong>30–45 minutes</strong> before your scheduled rafting time
+              to allow for check-in, gear fitting, safety briefing, and instructions.
+              Late arrivals may miss the trip and <strong>no refund</strong> will be issued.
+            </span>
+          </li>
+
+          <li style="display:grid;grid-template-columns:24px 1fr;column-gap:12px;margin-bottom:12px;">
+            <span style="color:#6b21a8;font-weight:600;">✓</span>
+            <span>
+              Wear <strong>quick-dry clothes</strong> (synthetic fabrics like nylon or polyester).
+              Avoid cotton.
+            </span>
+          </li>
+
+          <li style="display:grid;grid-template-columns:24px 1fr;column-gap:12px;margin-bottom:12px;">
+            <span style="color:#6b21a8;font-weight:600;">✓</span>
+            <span>
+              Leave jewelry, electronics, and other valuables in a safe place or with our staff.
+            </span>
+          </li>
+
+          <li style="display:grid;grid-template-columns:24px 1fr;column-gap:12px;margin-bottom:12px;">
+            <span style="color:#6b21a8;font-weight:600;">✓</span>
+            <span>
+              Not recommended for individuals with heart conditions, back or neck problems,
+              recent surgeries, or during pregnancy.
+            </span>
+          </li>
+
+          <li style="display:grid;grid-template-columns:24px 1fr;column-gap:12px;margin-bottom:12px;">
+            <span style="color:#6b21a8;font-weight:600;">✓</span>
+            <span>
+              Participants must be between the ages of <strong>10 and 60 years</strong>.
+              Rafting is a physically demanding activity.
+            </span>
+          </li>
+
+          <li style="display:grid;grid-template-columns:24px 1fr;column-gap:12px;margin-bottom:12px;
+                   background:#fff6f6;border-left:4px solid #dc2626;padding:10px;border-radius:6px;">
+            <span style="color:#dc2626;font-weight:700;">✓</span>
+            <span>
+              Do <strong>not</strong> consume alcohol or drugs before or during the rafting trip.
+              It impairs judgment and puts the entire group at risk.
+            </span>
+          </li>
+
+          <li style="display:grid;grid-template-columns:24px 1fr;column-gap:12px;margin-bottom:12px;
+                   background:#fff6f6;border-left:4px solid #dc2626;padding:10px;border-radius:6px;">
+            <span style="color:#dc2626;font-weight:700;">✓</span>
+            <span>
+              Operators reserve the right to deny participation if intoxication is suspected.
+              No refund will be issued in such cases.
+            </span>
+          </li>
+
+          <li style="display:grid;grid-template-columns:24px 1fr;column-gap:12px;margin-bottom:12px;">
+            <span style="color:#6b21a8;font-weight:600;">✓</span>
+            <span>
+              Always wear a <strong>life jacket (PFD)</strong> and helmet provided by the operators.
+            </span>
+          </li>
+
+          <li style="display:grid;grid-template-columns:24px 1fr;column-gap:12px;margin-bottom:12px;
+                   background:#fff6f6;border-left:4px solid #dc2626;padding:10px;border-radius:6px;">
+            <span style="color:#dc2626;font-weight:700;">✓</span>
+            <span>
+              Persons with <strong>heart problems, asthma, epilepsy</strong>, or other serious
+              medical conditions are <strong>not allowed</strong> to participate.
+            </span>
+          </li>
+
+          <li style="display:grid;grid-template-columns:24px 1fr;column-gap:12px;margin-bottom:12px;
+                   background:#fff6f6;border-left:4px solid #dc2626;padding:10px;border-radius:6px;">
+            <span style="color:#dc2626;font-weight:700;">✓</span>
+            <span>
+              Maximum raft capacity is <strong>7 people</strong>.
+            </span>
+          </li>
+
+          <li style="display:grid;grid-template-columns:24px 1fr;column-gap:12px;margin-bottom:12px;
+                   background:#fff6f6;border-left:4px solid #dc2626;padding:10px;border-radius:6px;">
+            <span style="color:#dc2626;font-weight:700;">✓</span>
+            <span>
+              Groups with <strong>fewer than 6 people</strong> may be combined with other customers.
+            </span>
+          </li>
+
+          <li style="display:grid;grid-template-columns:24px 1fr;column-gap:12px;margin-bottom:12px;
+                   background:#fff6f6;border-left:4px solid #dc2626;padding:10px;border-radius:6px;">
+            <span style="color:#dc2626;font-weight:700;">✓</span>
+            <span>
+              Groups with <strong>more than 7 people</strong> will be split into
+              <strong>multiple rafts</strong>.
+            </span>
+          </li>
+
+        </ul>
+
+        <p class="text-center text-muted mt-4">
+          Your adventure begins here — stay safe, have fun, and make unforgettable memories!
+        </p>
+        <div class="text-center mt-3">
+          <a href="{{ url_for('booking.book') }}" class="btn btn-primary btn-lg">
+            Start Booking
+          </a>
+        </div>
+
+
+      </div>
+    </div>
+  </section>
+
+
+
+  <!-- Location Section -->
+  <section class="py-5 bg-light" id="location">
+    <div class="container">
+      <h2 class="text-center section-title">Our Location</h2>
+      <p class="text-center lead mb-5">Find us easily and start your adventure at Aayannur River Rafting</p>
+
+      <div class="row justify-content-center">
+        <div class="col-lg-10">
+          <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
+            <div class="row g-0">
+
+              <!-- Google Map -->
+              <div class="col-md-6">
+                <iframe
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3918.9283551084713!2d75.4375!3d11.9235!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ba43f56b13f1b0b%3A0x1234567890abcdef!2sAayannur%2C%20Kerala%2C%20India!5e0!3m2!1sen!2sin!4v1693832389431!5m2!1sen!2sin"
+                  width="100%" height="350" style="border:0;" allowfullscreen="" loading="lazy">
+                </iframe>
+              </div>
+
+              <!-- Location Info -->
+              <div class="col-md-6 d-flex align-items-center">
+                <div class="p-4">
+                  <h4 class="mb-3">Visit Us</h4>
+                  <p><i class="fas fa-map-marker-alt me-2 text-primary"></i> Cherupuzha River Rafting Gate-2,Near
+                    Kozhichal Bridge,Kozhichal P O,kannur,670511</p>
+                  <p><i class="fas fa-phone me-2 text-success"></i>+91 9544112264</p>
+                  <p><i class="fas fa-envelope me-2 text-danger"></i> advtourdevsoc@gmail.com</p>
+
+                  <a href=" https://maps.app.goo.gl/xKUFUh3sMcowPtMR9?g_st=ic" target="_blank"
+                    class="btn btn-primary mt-3">
+                    <i class="fas fa-directions me-2"></i> Get Directions
+                  </a>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-5">
+    <div class="container">
+      <div class="row">
+        <div class="col-lg-4 mb-4 mb-lg-0">
+          <h4 class="text-white mb-4">Cherupuzha River Rafting</h4>
+          <p>Experience the ultimate adventure in the heart of nature</p>
+          <div class="mt-4">
+            <!-- Facebook -->
+            <a href="https://www.facebook.com/cherupuzha.river.rafting/" target="_blank" rel="noopener noreferrer"
+              class="social-icon">
+              <i class="fab fa-facebook-f"></i>
+            </a>
+
+            <!-- Instagram -->
+            <a href="https://www.instagram.com/cherupuzha_river_rafting/?hl=en" target="_blank"
+              rel="noopener noreferrer" class="social-icon">
+              <i class="fab fa-instagram"></i>
+            </a>
+
+
+            <a href="https://maps.app.goo.gl/NLe1jRxT42TvEXNb6" target="_blank" rel="noopener noreferrer"
+              class="social-icon">
+              <i class="fas fa-map-marker-alt"></i>
+            </a>
+
+
+          </div>
+
+        </div>
+
+        <div class="col-lg-4 mb-4 mb-lg-0">
+          <h4 class="text-white mb-4">Contact Info</h4>
+          <p><i class="fas fa-map-marker-alt me-2"></i> Cherupuzha River Rafting Gate-2,Near Kozhichal Bridge,Kozhichal
+            P O,kannur,670511</p>
+          <p><i class="fas fa-phone me-2"></i> +91 9544112264</p>
+          <p><i class="fas fa-envelope me-2"></i> advtourdevsoc@gmail.com</p>
+        </div>
+
+        <div class="col-lg-4">
+          <h4 class="text-white mb-4">Quick Links</h4>
+          <div class="row">
+            <div class="col-6">
+              <ul class="list-unstyled">
+                <li class="mb-2"><a href="#home" class="text-white text-decoration-none">Home</a></li>
+                <li class="mb-2"><a href="#time-slots" class="text-white text-decoration-none">Time Slots</a></li>
+                <li class="mb-2"><a href="#why-us" class="text-white text-decoration-none">Why Choose Us</a></li>
+              </ul>
+            </div>
+            <div class="col-6">
+              <ul class="list-unstyled">
+                <li class="mb-2"><a href="#gallery" class="text-white text-decoration-none">Gallery</a></li>
+                <li class="mb-2"><a href="#" class="text-white text-decoration-none">Terms & Conditions</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="my-4 bg-light">
+
+      <div class="text-center">
+        <p class="mb-0">&copy; 2026 Cherupuzha River Rafting. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Bootstrap JS -->
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Include WhatsApp Widget -->
+  {% include 'whatsapp_widget.html' %}
+
+</body>
+
+</html>

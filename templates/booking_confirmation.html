@@ -1,0 +1,375 @@
+{% extends "base.html" %}
+{% block content %}
+{# Show group size error at the top if needed #}
+{% set group_size = booking.get('group_size', booking.get('booking_details', {}).get('group_size', 0)) %}
+{% set remaining_seats = booking.get('remaining_seats', 0) %}
+{% set min_group_size = booking.get('min_group_size', 0) %}
+{% if not booking.get('allow_payment', True) %}
+{% if group_size > remaining_seats %}
+<div class="bg-yellow-100 border border-yellow-300 text-blue-800 px-6 py-3 rounded mb-6 mt-4 font-medium">
+  Only {{ remaining_seats }} seats left. You selected {{ group_size }}. Please reduce the group size to proceed
+</div>
+{% else %}
+<div class="bg-yellow-100 border border-yellow-300 text-blue-800 px-6 py-3 rounded mb-6 mt-4 font-medium">
+  Oops! Your group size is below the minimum requirement. You are not able to proceed further
+</div>
+{% endif %}
+{% endif %}
+<div class="max-w-2xl mx-auto bg-white p-6 rounded shadow">
+  <h2 class="text-xl font-bold mb-4">Booking Confirmation</h2>
+  {% if request.args.get('status') in ['cancelled', 'unpaid'] or request.args.get('payment_error') == 'unpaid' %}
+  <div class="bg-amber-50 border-l-4 border-amber-500 text-amber-900 p-4 mb-6 rounded-lg shadow-sm" role="alert">
+    <div class="flex items-start gap-3">
+      <span class="text-2xl">⚠️</span>
+      <div>
+        <h3 class="font-bold text-base text-amber-900">Payment not done, Please Try again</h3>
+        <p class="text-sm text-amber-800 mt-1">
+          You closed the payment window before completing a payment. No payment was completed.
+        </p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  <div class="space-y-3 mb-6">
+    <p><strong>Name:</strong> {{ booking.get('user_name', booking.get('name', '')) }}</p>
+    {% if booking.get('location', booking.get('booking_details', {}).get('location')) %}
+    <p><strong>Location:</strong> {{ booking.get('location', booking.get('booking_details', {}).get('location')) }}</p>
+    {% endif %}
+    <p><strong>Date:</strong> {{ booking.get('date', booking.get('booking_details', {}).get('date', '')) }} - {{
+      booking.get('slot', booking.get('booking_details', {}).get('slot', '')) }}</p>
+    <p><strong>Group Size:</strong> {{ booking.get('group_size', booking.get('booking_details', {}).get('group_size',
+      '')) }} person(s)</p>
+    <p><strong>Status:</strong> {{ booking.get('status', '') }}</p>
+    {% if booking.get('raft_allocations', booking.get('booking_details', {}).get('raft_allocations')) %}
+    <p><strong>Rafts:</strong> {{ booking.get('raft_allocations', booking.get('booking_details',
+      {}).get('raft_allocations')) }}</p>
+    {% endif %}
+  </div>
+  {% set total = (booking.get('total_amount') or booking.get('amount') or 0)|float %}
+  {% set per_person = (booking.get('amount_per_person') or booking.get('booking_details', {}).get('amount_per_person') or 0)|float %}
+  {% set group_size_val = (booking.get('group_size') or booking.get('booking_details', {}).get('group_size') or 0)|int %}
+  {% set coupon_discount_val = (booking.get('coupon_discount_applied') or 0)|float %}
+  {% set per_head_discount = (coupon_discount_val / group_size_val) if (group_size_val > 0 and coupon_discount_val > 0) else 0.0 %}
+  {% set effective_per_person = per_person - per_head_discount %}
+  {% set discounted_subtotal = effective_per_person * group_size_val %}
+  {% set bookingPayload = {
+  'booking_details': {
+  'date': booking.get('date', booking.get('booking_details', {}).get('date', '')),
+  'slot': booking.get('slot', booking.get('booking_details', {}).get('slot', '')),
+  'group_size': (booking.get('group_size') or booking.get('booking_details', {}).get('group_size') or 0)
+  },
+  'amount': total,
+  'currency': 'INR',
+  'booking_id': booking.get('_id', '')
+  } %}
+  {% if total > 0 %}
+  <div class="border-t pt-4 mt-4">
+    <div class="bg-blue-50 p-4 rounded border border-blue-200">
+      <!-- Amount per person -->
+      <div class="mb-4">
+        <p class="text-sm text-gray-600 font-medium">Amount per person:</p>
+        {% if booking.get('coupon_code') and group_size_val > 0 and coupon_discount_val > 0 %}
+        <p class="text-lg font-semibold text-blue-600">₹{{ "%.2f"|format(effective_per_person) }} <span
+            class="text-xs font-normal text-gray-500">(Setting Rate: ₹{{ "%.2f"|format(per_person) }})</span></p>
+        {% else %}
+        <p class="text-lg font-semibold text-blue-600">₹{{ "%.2f"|format(per_person) }}</p>
+        <p class="text-xs text-gray-500">{{ group_size_val }} × ₹{{ "%.2f"|format(per_person) }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Platform Fee -->
+      <div class="mb-4">
+        <p class="text-sm text-gray-600">Platform Fee:</p>
+        {% set platform_fee = (booking.get('platform_fee') or 0)|float %}
+        <p class="text-lg font-semibold text-gray-700">₹{{ "%.2f"|format(platform_fee) }}</p>
+      </div>
+
+      <hr class="my-3">
+
+      <!-- Total Amount -->
+      <div class="mb-4">
+        <p class="text-sm text-gray-600">Total Amount:</p>
+        <p class="text-2xl font-bold text-green-600">₹{{ "%.2f"|format(total) }}</p>
+        {% if booking.get('coupon_code') %}
+        <p class="text-xs text-gray-500">
+          <span class="line-through">Original Total: ₹{{ "%.2f"|format((booking.get('original_total_amount') or total)|float)
+            }}</span>
+          <span class="text-emerald-700 font-semibold ml-1">(-₹{{ "%.2f"|format((booking.get('coupon_discount_applied') or 0)|float) }} coupon discount)</span>
+        </p>
+        {% elif platform_fee > 0 %}
+        <p class="text-xs text-gray-500">({{ booking.get('group_size', booking.get('booking_details',
+          {}).get('group_size', '')) }} × ₹{{ "%.2f"|format(per_person) }}) + ₹{{ "%.2f"|format(platform_fee) }}</p>
+        {% endif %}
+      </div>
+
+      {% if booking.get('coupon_code') %}
+      <div class="mb-4 p-3 bg-emerald-50 border border-emerald-300 rounded-lg">
+        <div class="flex items-center justify-between text-xs font-bold text-emerald-800">
+          <span>🎟️ Coupon Applied: <span class="font-mono text-sm">{{ booking.get('coupon_code') }}</span></span>
+          <span class="bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded text-xs">-₹{{
+            "%.2f"|format((booking.get('coupon_discount_applied') or 0)|float) }}</span>
+        </div>
+        <p class="text-xs text-emerald-700 mt-1">₹{{ "%.2f"|format(per_head_discount) }} per head discount applied!</p>
+      </div>
+      {% endif %}
+
+      <hr class="my-3">
+
+      <!-- Advance Payment -->
+      {% set advance_val = (booking.get('advance_amount') or 0)|float %}
+      <div class="mb-4">
+        <p class="text-sm text-gray-600">Advance Payment ({{ (booking.get('advance_percent') or 0)|float }}% to pay now):</p>
+        <p class="text-xl font-bold text-orange-600">₹{{ "%.2f"|format(advance_val) }}</p>
+        {% if booking.get('coupon_code') and group_size_val > 0 and coupon_discount_val > 0 %}
+        <p class="text-xs text-gray-500">(₹{{ "%.2f"|format(effective_per_person) }} × {{ group_size_val }}) × {{ (booking.get('advance_percent') or 0)|float }}%</p>
+        {% else %}
+        <p class="text-xs text-gray-500">(₹{{ "%.2f"|format(per_person) }} × {{ group_size_val }}) × {{ (booking.get('advance_percent') or 0)|float }}%</p>
+        {% endif %}
+      </div>
+
+      <!-- Balance Payment -->
+      {% set balance_val = booking.get('balance_amount') %}
+      {% if balance_val is none %}
+      {% set balance_val = total - advance_val %}
+      {% else %}
+      {% set balance_val = balance_val|float %}
+      {% endif %}
+      <div class="mb-4">
+        <p class="text-sm text-gray-600">Balance Amount (to pay on arrival):</p>
+        <p class="text-xl font-bold text-blue-600">₹{{ "%.2f"|format(balance_val if balance_val > 0 else 0.0) }}</p>
+        <p class="text-xs text-gray-500">₹{{ "%.2f"|format(total) }} - ₹{{ "%.2f"|format(advance_val) }}</p>
+      </div>
+
+      {% if booking.get('allow_payment', True) %}
+      <!-- CASE 1: Capacity available -> allow payment -->
+      <div class="text-center mt-6">
+        <!-- Payment Button (Initially hidden, shows after 2 seconds) -->
+        <button id="proceedToPayment" style="display:none;"
+          class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition duration-300 w-full md:w-auto text-lg flex items-center justify-center gap-2">
+          Proceed to Payment
+        </button>
+        <style>
+          @keyframes spin {
+            0% {
+              transform: rotate(0deg);
+            }
+
+            100% {
+              transform: rotate(360deg);
+            }
+          }
+        </style>
+
+        <div id="loading" style="display:none;" class="text-gray-600 mt-3 font-medium"></div>
+        <div id="error" class="text-red-500 mt-2 font-medium"></div>
+      </div>
+      {% else %}
+      <!-- CASE 2: Capacity exceeded or below minimum -> payment disabled -->
+      {% if group_size > remaining_seats %}
+      <div class="mt-4 text-center text-sm text-red-600 font-semibold">
+        Only {{ remaining_seats }} seats left. You selected {{ group_size }}. Please reduce the group size to proceed
+      </div>
+      {% else %}
+      <div class="mt-4 text-center text-sm text-red-600 font-semibold">
+        Oops! Your group size is below the minimum requirement. You are not able to proceed further
+      </div>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+  <div class="mt-6"><a href="{{ url_for('booking.home') }}" class="text-sm text-teal-600">Back to Home</a></div>
+</div>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+  function openRazorpayCheckout(orderData) {
+    console.log('Opening Razorpay with orderData:', orderData);
+    var paymentAttemptStarted = false;
+
+    function onMessage(event) {
+      if (!event || !event.origin) return;
+      if (event.origin.includes('razorpay.com')) {
+        try {
+          var data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+          if (data) {
+            var ev = (data.event || data.action || '').toLowerCase();
+            if (ev.includes('submit') || ev.includes('failed') || ev.includes('proceed') || ev.includes('pay') || ev.includes('interaction') || data.payment_id || data.error) {
+              console.log('Payment attempt detected via iframe message:', data);
+              paymentAttemptStarted = true;
+            }
+          }
+        } catch (e) {
+          // Non-JSON iframe message
+        }
+      }
+    }
+    window.addEventListener('message', onMessage);
+
+    var options = {
+      "key": orderData.razorpay_key_id,
+      "amount": Math.round(orderData.amount * 100),
+      "currency": orderData.currency || "INR",
+      "name": "Booking Payment",
+      "order_id": orderData.order_id,
+      "handler": function (response) {
+        paymentAttemptStarted = true;
+        window.removeEventListener('message', onMessage);
+        console.log('Payment completed in Razorpay, verifying with backend...', response);
+
+        document.getElementById('loading').style.display = 'block';
+        const proceedBtn = document.getElementById('proceedToPayment');
+        if (proceedBtn) {
+          proceedBtn.disabled = true;
+          proceedBtn.style.opacity = '0.6';
+          proceedBtn.innerHTML = '<span style="font-size:1.5rem;vertical-align:middle;margin-right:8px;">⏳</span><span style="font-weight:bold; font-size:1.2rem;">Verifying Payment...</span>';
+        }
+
+        fetch('/payment/verify_payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            booking_id: orderData.booking_id,
+            order_id: response.razorpay_order_id,
+            payment_id: response.razorpay_payment_id,
+            signature: response.razorpay_signature
+          })
+        })
+          .then(res => {
+            if (!res.ok && res.status !== 400 && res.status !== 409) {
+              throw new Error('HTTP ' + res.status);
+            }
+            return res.json();
+          })
+          .then(data => {
+            console.log('Verification response:', data);
+            if (data.success) {
+              console.log('Payment verified successfully, redirecting to success page');
+              window.location.replace('/payment/success?booking_id=' + encodeURIComponent(orderData.booking_id));
+            } else {
+              console.log('Payment verification failed, redirecting to failure page');
+              window.location.replace('/payment/failure?booking_id=' + encodeURIComponent(orderData.booking_id));
+            }
+          })
+          .catch(err => {
+            console.error('Error verifying payment (network/timeout):', err);
+            // Redirect to processing page for background/status verification on network error
+            window.location.replace('/payment/processing?booking_id=' + encodeURIComponent(orderData.booking_id));
+          });
+      },
+      "modal": {
+        "ondismiss": function () {
+          window.removeEventListener('message', onMessage);
+          console.log('Payment modal dismissed. Directing to payment processing for status verification.');
+          // Always route to processing flow so server-side status verification determines final result
+          window.location.replace('/payment/processing?booking_id=' + encodeURIComponent(orderData.booking_id));
+        }
+      }
+    };
+
+    var rzp = new Razorpay(options);
+
+    rzp.on('payment.failed', function (response) {
+      console.log('Razorpay payment.failed event triggered:', response);
+      paymentAttemptStarted = true;
+    });
+
+    rzp.open();
+  }
+
+  // Wait for DOM to be ready
+  document.addEventListener('DOMContentLoaded', function () {
+    const bookingPayload = JSON.parse('{{ bookingPayload | tojson | safe }}');
+    const proceedBtn = document.getElementById('proceedToPayment');
+
+  console.log('Booking payload prepared:', bookingPayload);
+  console.log('Button found:', proceedBtn ? 'Yes' : 'No');
+
+  // Validate booking_id is present
+  if (!bookingPayload.booking_id) {
+    console.error('ERROR: booking_id is missing from bookingPayload!', bookingPayload);
+    if (proceedBtn) {
+      proceedBtn.disabled = true;
+      proceedBtn.innerHTML = 'Error: Invalid Booking';
+      proceedBtn.style.display = 'inline-block';
+    }
+    return;
+  }
+
+  // Show button immediately if valid
+  if (proceedBtn) {
+    proceedBtn.style.display = 'inline-block';
+    proceedBtn.disabled = false;
+    proceedBtn.style.opacity = '1';
+    proceedBtn.style.cursor = 'pointer';
+    proceedBtn.innerHTML = 'Proceed to Payment';
+  }
+
+  // Attach click handler
+  if (proceedBtn) {
+    proceedBtn.onclick = function () {
+      console.log('Payment button clicked');
+
+      // Clear any previous error messages immediately
+      document.getElementById('error').innerText = '';
+
+      // Validate booking_id before making request
+      if (!bookingPayload.booking_id) {
+        document.getElementById('error').innerText = 'Error: Missing booking ID. Please refresh and try again.';
+        return;
+      }
+
+      // Disable button to prevent duplicate clicks
+      proceedBtn.disabled = true;
+      proceedBtn.style.opacity = '0.6';
+      proceedBtn.style.cursor = 'not-allowed';
+      const originalText = proceedBtn.innerHTML;
+      proceedBtn.innerHTML = '<span style="font-size:1.5rem;vertical-align:middle;margin-right:8px;">⏳</span><span style="font-weight:bold; font-size:1.2rem;">Processing...</span>';
+
+      console.log('Sending create_order request with payload:', bookingPayload);
+      document.getElementById('loading').style.display = 'block';
+
+      fetch('/payment/create_order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookingPayload)
+      })
+        .then(res => {
+          console.log('Response status:', res.status);
+          if (!res.ok) {
+            return res.json()
+              .then(err => {
+                const errorMessage = err.error || err.message || `Server error: ${res.status}`;
+                throw new Error(errorMessage);
+              })
+              .catch(parseErr => {
+                throw new Error('Oops! One more click.');
+              });
+          }
+          return res.json();
+        })
+        .then(orderData => {
+          console.log('Order created successfully:', orderData);
+          document.getElementById('loading').style.display = 'none';
+          openRazorpayCheckout(orderData);
+        })
+        .catch(err => {
+          document.getElementById('loading').style.display = 'none';
+          console.error('Error creating order:', err);
+          const errorMsg = err.message || ' Please try again.';
+
+          // Re-enable button and show error after 2 seconds
+          setTimeout(() => {
+            proceedBtn.disabled = false;
+            proceedBtn.style.opacity = '1';
+            proceedBtn.style.cursor = 'pointer';
+            proceedBtn.innerHTML = originalText;
+            document.getElementById('error').innerText = errorMsg;
+          }, 2000);
+        });
+    };
+  } else {
+    console.error('ERROR: proceedToPayment button not found!');
+  }
+  });
+</script>
+{% endblock %}

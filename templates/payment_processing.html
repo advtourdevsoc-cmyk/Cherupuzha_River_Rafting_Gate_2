@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[70vh] py-10 px-4">
+  <div class="relative max-w-xl w-full bg-white/80 backdrop-blur-xl shadow-2xl rounded-3xl p-8 text-center border border-white/50 overflow-hidden">
+    <!-- Background element -->
+    <div class="absolute inset-0 z-[-1] bg-gradient-to-br from-amber-50 to-orange-50 opacity-100"></div>
+    <div class="absolute -top-24 -right-24 w-48 h-48 bg-amber-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
+    <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-orange-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
+    
+    <!-- Spinner / Processing Icon -->
+    <div id="statusIconContainer" class="w-24 h-24 mx-auto bg-gradient-to-tr from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-amber-400/40 mb-6">
+      <div id="spinnerIcon" class="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+    </div>
+    
+    <h2 id="processingHeading" class="text-3xl font-extrabold text-gray-800 mb-3 tracking-tight">Verifying Your Payment</h2>
+    
+    <p id="processingSubtext" class="text-gray-600 mb-6 font-medium leading-relaxed">
+      We're checking your payment status. Please wait while we confirm your transaction. This may take a little longer if the bank or payment gateway is still processing the transaction.
+    </p>
+
+    <!-- Verification Guidance Box -->
+    <div class="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-4 mb-6 shadow-sm text-left">
+      <div class="flex items-start gap-3">
+        <span class="text-xl">ℹ️</span>
+        <div>
+          <h4 class="font-semibold text-amber-900 text-sm md:text-base">Payment Verification In Progress</h4>
+          <p class="text-xs md:text-sm text-amber-800 font-normal mt-0.5">
+            You can refresh the status below or check your booking later. Please avoid initiating a duplicate payment while status verification is in progress.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Tracker Info -->
+    <div class="bg-white/90 rounded-2xl p-4 mb-6 shadow-sm border border-gray-100 relative overflow-hidden">
+      <div class="flex justify-between items-center py-1">
+        <span class="text-xs md:text-sm text-gray-500 font-medium">Verification Status</span>
+        <span id="statusBadge" class="text-xs md:text-sm font-bold text-amber-700 bg-amber-100 px-3 py-1 rounded-full flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+          Checking Payment...
+        </span>
+      </div>
+    </div>
+
+    <!-- Action Buttons (Hidden during active polling, shown on timeout) -->
+    <div id="actionContainer" class="flex flex-col space-y-3 hidden">
+      <button id="refreshBtn" onclick="manualRefresh()" class="relative inline-flex flex-col items-center justify-center w-full py-3.5 px-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white rounded-xl font-semibold transition-all duration-300 shadow-md shadow-amber-500/30 tracking-wide hover:-translate-y-0.5 overflow-hidden group">
+        <div class="flex items-center gap-2">
+          <i class="bi bi-arrow-clockwise text-xl"></i>
+          <span>Refresh Status</span>
+        </div>
+      </button>
+      <a href="{{ url_for('booking.track_booking') }}" class="w-full py-3 px-4 bg-white hover:bg-gray-50 text-gray-700 border-2 border-gray-200 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2">
+        <i class="bi bi-search"></i> Track Your Booking
+      </a>
+      <a href="{{ url_for('booking.home') }}" class="w-full py-2.5 px-4 text-xs font-semibold text-gray-500 hover:text-gray-700">
+        Back to Home
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+  const bookingId = "{{ booking_id }}";
+  let pollAttempts = 0;
+  const maxAttempts = 15; // 15 attempts * 3 sec = 45 seconds total polling window
+  let pollInterval = null;
+
+  function checkPaymentStatus() {
+    if (!bookingId) {
+      console.warn("No booking ID available for status polling");
+      showTimeoutState();
+      return;
+    }
+
+    pollAttempts++;
+    console.log(`Polling status attempt ${pollAttempts}/${maxAttempts} for booking ${bookingId}`);
+
+    fetch(`/payment/status/${encodeURIComponent(bookingId)}`, {
+      method: 'GET',
+      headers: { 'Cache-Control': 'no-cache' }
+    })
+      .then(res => res.json())
+      .then(data => {
+        console.log("Status check response:", data);
+        const paymentStatus = (data.payment_status || '').toLowerCase();
+        const bookingStatus = (data.booking_status || '').toLowerCase();
+
+        if (paymentStatus === 'paid' && bookingStatus === 'confirmed') {
+          clearInterval(pollInterval);
+          document.getElementById('statusBadge').className = 'text-xs md:text-sm font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full flex items-center gap-1.5';
+          document.getElementById('statusBadge').innerText = 'Payment Confirmed!';
+          
+          setTimeout(() => {
+            window.location.replace('/payment/success?booking_id=' + encodeURIComponent(bookingId));
+          }, 600);
+        } else if (paymentStatus === 'failed' || (paymentStatus === 'paid' && bookingStatus !== 'confirmed') || data.allocation_error) {
+          clearInterval(pollInterval);
+          document.getElementById('statusBadge').className = 'text-xs md:text-sm font-bold text-red-700 bg-red-100 px-3 py-1 rounded-full flex items-center gap-1.5';
+          document.getElementById('statusBadge').innerText = 'Booking Failed';
+
+          setTimeout(() => {
+            window.location.replace('/payment/failure?booking_id=' + encodeURIComponent(bookingId));
+          }, 600);
+        } else if (paymentStatus === 'unpaid') {
+          // Confirmed unpaid / checkout closed with 0 payment attempts made
+          clearInterval(pollInterval);
+          document.getElementById('statusBadge').className = 'text-xs md:text-sm font-bold text-orange-700 bg-orange-100 px-3 py-1 rounded-full flex items-center gap-1.5';
+          document.getElementById('statusBadge').innerText = 'Payment Not Done';
+
+          setTimeout(() => {
+            window.location.replace('/booking/' + encodeURIComponent(bookingId) + '/confirmation?payment_error=unpaid');
+          }, 600);
+        } else {
+          // Status is 'pending' / verification unknown
+          if (pollAttempts >= maxAttempts) {
+            clearInterval(pollInterval);
+            showTimeoutState();
+          }
+        }
+      })
+      .catch(err => {
+        console.error("Error during status polling (will retry):", err);
+        // Communication failure during polling must NOT cause false unpaid/failure redirect.
+        if (pollAttempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          showTimeoutState();
+        }
+      });
+  }
+
+  function showTimeoutState() {
+    document.getElementById('processingHeading').innerText = "Verifying Your Payment";
+    document.getElementById('processingSubtext').innerHTML = "We're checking your payment status. Please wait while we confirm your transaction. This may take a little longer if the bank or payment gateway is still processing the transaction. You can refresh the status below or check your booking later.";
+    
+    document.getElementById('statusIconContainer').className = "w-20 h-20 mx-auto bg-amber-100 rounded-full flex items-center justify-center text-amber-600 text-4xl mb-6 shadow-inner";
+    document.getElementById('statusIconContainer').innerHTML = "<i class=\"bi bi-clock-history\"></i>";
+    
+    document.getElementById('statusBadge').className = "text-xs md:text-sm font-bold text-amber-800 bg-amber-200 px-3 py-1 rounded-full";
+    document.getElementById('statusBadge').innerText = "Verification Pending";
+
+    document.getElementById('actionContainer').classList.remove('hidden');
+  }
+
+  function manualRefresh() {
+    pollAttempts = 0;
+    document.getElementById('actionContainer').classList.add('hidden');
+    document.getElementById('processingHeading').innerText = "Verifying Your Payment";
+    document.getElementById('processingSubtext').innerText = "We're checking your payment status. Please wait while we confirm your transaction. This may take a little longer if the bank or payment gateway is still processing the transaction.";
+    
+    document.getElementById('statusIconContainer').className = "w-24 h-24 mx-auto bg-gradient-to-tr from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-amber-400/40 mb-6";
+    document.getElementById('statusIconContainer').innerHTML = '<div class="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>';
+    
+    document.getElementById('statusBadge').className = "text-xs md:text-sm font-bold text-amber-700 bg-amber-100 px-3 py-1 rounded-full flex items-center gap-1.5";
+    document.getElementById('statusBadge').innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span> Checking Payment...';
+
+    checkPaymentStatus();
+    pollInterval = setInterval(checkPaymentStatus, 3000);
+  }
+
+  // Start automatic polling on load
+  document.addEventListener('DOMContentLoaded', () => {
+    checkPaymentStatus();
+    pollInterval = setInterval(checkPaymentStatus, 3000);
+  });
+</script>
+
+<style>
+  @keyframes blob {
+    0% { transform: translate(0px, 0px) scale(1); }
+    33% { transform: translate(30px, -50px) scale(1.1); }
+    66% { transform: translate(-20px, 20px) scale(0.9); }
+    100% { transform: translate(0px, 0px) scale(1); }
+  }
+  .animate-blob {
+    animation: blob 7s infinite;
+  }
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+</style>
+{% endblock %}

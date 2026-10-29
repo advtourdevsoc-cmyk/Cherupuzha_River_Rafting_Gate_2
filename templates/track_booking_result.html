@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <h2 class="text-2xl font-bold mb-6 text-center">Your Bookings found</h2>
+
+  {% for booking in bookings %}
+  <div class="bg-white p-6 rounded shadow mb-6 border border-gray-200" style="page-break-inside: avoid;">
+    <h3 class="text-lg font-bold mb-4 border-b pb-2">Booking #{{ loop.index }}</h3>
+
+    <div class="space-y-3 mb-6">
+      <p><strong>Name:</strong> {{ booking.user_name }}</p>
+      <p><strong>Email:</strong> {{ booking.email }}</p>
+      <p><strong>Phone:</strong> {{ booking.phone | format_phone }}</p>
+      <p><strong>Location:</strong> {{ booking.location or (booking.booking_details.location if booking.booking_details else '') or '-' }}</p>
+      <p><strong>Date:</strong> {{ booking.date }}</p>
+      <p><strong>Time Slot:</strong> {{ booking.slot }}</p>
+      <p><strong>Group Size:</strong> {{ booking.group_size }} person(s)</p>
+      <p><strong>Status:</strong>
+        <span
+          class="px-2 py-1 rounded text-white text-sm {% if booking.status == 'Confirmed' %}bg-green-500{% elif booking.status == 'Visited' %}bg-purple-500{% elif booking.status == 'Pending' %}bg-yellow-500{% else %}bg-gray-500{% endif %}">
+          {{ booking.status }}
+        </span>
+      </p>
+      {% if booking.raft_allocations %}
+      <p><strong>Assigned Rafts:</strong> {{ booking.raft_allocations | join(', ') }}</p>
+      {% endif %}
+    </div>
+
+    {% if booking.amount and booking.amount > 0 %}
+    <div class="border-t pt-4 mt-4">
+      <div class="bg-blue-50 p-4 rounded border border-blue-200">
+        {% set amount_per_head = ((booking.booking_details.amount_per_person if booking.booking_details else 0) or 0)|float %}
+        <p class="text-sm text-gray-600">Amount per person:</p>
+        <p class="text-lg font-semibold text-blue-600 mb-2">₹{{ "%.2f"|format(amount_per_head) }}</p>
+
+        <p class="text-sm text-gray-600 mt-3">Total Amount:</p>
+        {% set total_amt = (booking.amount or 0)|float %}
+        <p class="text-2xl font-bold text-green-600">₹{{ "%.2f"|format(total_amt) }}</p>
+        <p class="text-xs text-gray-500 mt-1">{{ booking.group_size or 0 }} people × ₹{{
+          "%.2f"|format(amount_per_head) }}</p>
+
+        <!-- Advance and Balance Section - Only for Confirmed Bookings -->
+        {% if booking.status == 'Confirmed' %}
+        {% set adv_pct = (booking.advance_percent or 25)|float %}
+        {% set advance_amount = (booking.advance_amount if booking.advance_amount is not none else (total_amt * adv_pct / 100))|float %}
+        {% set balance_amount = (total_amt - advance_amount)|float %}
+        <div class="mt-4 pt-4 border-t border-blue-300">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm text-gray-600">Advance Paid:</p>
+              <p class="text-lg font-bold text-teal-600">₹{{ "%.2f"|format(advance_amount) }}</p>
+              {% if booking.advance_percent %}
+              <p class="text-xs text-gray-500">({{ booking.advance_percent }}%)</p>
+              {% endif %}
+            </div>
+            <div>
+              <p class="text-sm text-gray-600">Balance Due:</p>
+              <p class="text-lg font-bold text-orange-600">₹{{ "%.2f"|format(balance_amount if balance_amount > 0 else 0.0) }}</p>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="border-t pt-4 mt-4">
+      <!-- <p class="text-gray-600 text-sm">No pricing information available yet.</p> -->
+    </div>
+    {% endif %}
+
+    {% if booking.status == 'Pending' %}
+    <div class="bg-yellow-50 p-4 rounded border border-yellow-200 mt-6">
+      <p class="text-sm text-yellow-800">Your booking is pending. The admin will contact you at the phone number
+        provided to confirm the booking.</p>
+    </div>
+    {% elif booking.status == 'Confirmed' %}
+    <div class="bg-green-50 p-4 rounded border border-green-200 mt-6">
+      <p class="text-sm text-green-800">Your booking is confirmed! See you on {{ booking.date }} at {{ booking.slot }}.
+      </p>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <div class="mt-6 text-center">
+    <a href="{{ url_for('booking.track_booking') }}" class="text-sm text-teal-600 hover:underline">Search Again</a> |
+    <a href="{{ url_for('booking.home') }}" class="text-sm text-teal-600 hover:underline">Back to Home</a>
+  </div>
+</div>
+{% endblock %}

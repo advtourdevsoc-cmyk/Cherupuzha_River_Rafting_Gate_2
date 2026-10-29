@@ -1,0 +1,958 @@
+{% extends "admin_base.html" %}
+{% block content %}
+{% if booking_success_data %}
+<!-- Temporary Success Notification Toast -->
+<div id="booking-success-toast"
+     class="fixed top-20 right-4 sm:right-6 z-50 max-w-sm w-full bg-white border border-emerald-300 rounded-xl shadow-lg p-4 transition-all duration-500 ease-out transform translate-y-0 opacity-100 pointer-events-auto"
+     role="alert"
+     aria-live="polite">
+  <div class="flex items-start gap-3">
+    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-base">
+      ✓
+    </div>
+    <div class="flex-1 min-w-0">
+      <h4 class="text-sm font-bold text-gray-900 flex items-center gap-1.5">
+        <span>Booking Successful!</span>
+      </h4>
+      <div class="text-xs text-gray-600 space-y-1 mt-2">
+        {% if booking_success_data.booking_id %}
+        <div class="flex items-center gap-1.5">
+          <span class="font-medium text-gray-500">Booking ID:</span>
+          <span class="font-mono text-gray-800 truncate">{{ booking_success_data.booking_id }}</span>
+        </div>
+        {% endif %}
+        {% if booking_success_data.name %}
+        <div class="flex items-center gap-1.5">
+          <span class="font-medium text-gray-500">Customer:</span>
+          <span class="font-semibold text-gray-800 truncate">{{ booking_success_data.name }}</span>
+        </div>
+        {% endif %}
+        {% if booking_success_data.date %}
+        <div class="flex items-center gap-1.5">
+          <span class="font-medium text-gray-500">Booking Date:</span>
+          <span class="text-gray-800">{{ booking_success_data.date }}</span>
+        </div>
+        {% endif %}
+        {% if booking_success_data.slot %}
+        <div class="flex items-center gap-1.5">
+          <span class="font-medium text-gray-500">Time Slot:</span>
+          <span class="text-gray-800">{{ booking_success_data.slot }}</span>
+        </div>
+        {% endif %}
+        {% if booking_success_data.group_size %}
+        <div class="flex items-center gap-1.5">
+          <span class="font-medium text-gray-500">Group Size:</span>
+          <span class="text-gray-800">{{ booking_success_data.group_size }} participants</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const toast = document.getElementById('booking-success-toast');
+    if (toast) {
+      setTimeout(function () {
+        toast.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px)';
+        setTimeout(function () {
+          toast.remove();
+        }, 600);
+      }, 4000);
+    }
+  });
+</script>
+{% endif %}
+<div class="max-w-7xl mx-auto space-y-6">
+  <!-- Top Admin Page Header (Matching Coupon Generation Page) -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+        <span>🚣</span> Raft Booking
+      </h1>
+      <p class="text-sm text-gray-500 mt-1">Create custom offline admin bookings for customers and view raft booking history.</p>
+    </div>
+    <div>
+      <a href="{{ url_for('admin.admin_create_booking') }}"
+        class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+        <span>✨</span>
+        <span>Create Booking</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Raft Booking History Card (Main Content Area matching Coupon Generation Page) -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <h3 class="font-bold text-lg text-gray-800 flex items-center gap-2">
+          <span>📋</span> Raft Booking History
+        </h3>
+        <span id="filtered-count-badge" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-200">
+          {{ admin_bookings|length }} Bookings
+        </span>
+      </div>
+      <div>
+        <button type="button" id="toggle-history-filter-btn" onclick="toggleHistoryFilterPanel()"
+          class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-sm">
+          <span>🔍</span> Filter
+        </button>
+      </div>
+    </div>
+
+    <div class="p-6 space-y-4">
+      <!-- EXISTING FILTER BOX (TOGGLEABLE) -->
+      {% set is_filter_panel_open = request.args.get('filter_panel') == 'open' %}
+      <div id="history-filter-panel" class="{% if not is_filter_panel_open %}hidden {% endif %}p-4 bg-gray-50 rounded-xl border border-gray-200 shadow-sm transition-all duration-200">
+        <form method="GET" action="{{ url_for('admin.admin_booking') }}" id="history-filter-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+          <input type="hidden" name="filter_panel" value="open">
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">From Date</label>
+            <input type="date" id="filter_from_date" name="from_date" value="{{ filter_from_date or '' }}"
+              class="w-full border border-gray-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">To Date</label>
+            <input type="date" id="filter_to_date" name="to_date" value="{{ filter_to_date or '' }}"
+              class="w-full border border-gray-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Time Slot</label>
+            <select id="filter_slot" name="slot" class="w-full border border-gray-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
+              <option value="All">All Slots</option>
+              {% for s in (all_slots if all_slots else (settings.time_slots if settings and settings.time_slots else [])) %}
+              <option value="{{ s }}" {% if filter_slot == s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+              {% if filter_slot and filter_slot != 'All' and filter_slot not in (all_slots if all_slots else (settings.time_slots if settings and settings.time_slots else [])) %}
+              <option value="{{ filter_slot }}" selected>{{ filter_slot }}</option>
+              {% endif %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Payment Method</label>
+            <select id="filter_payment_mode" name="payment_mode" class="w-full border border-gray-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
+              <option value="All">All Methods</option>
+              <option value="Cash" {% if filter_payment_mode == 'Cash' %}selected{% endif %}>Cash</option>
+              <option value="UPI / GPay" {% if filter_payment_mode == 'UPI / GPay' %}selected{% endif %}>UPI / GPay / PhonePe</option>
+              <option value="Bank Transfer" {% if filter_payment_mode == 'Bank Transfer' %}selected{% endif %}>Bank Transfer</option>
+              <option value="Direct Admin Booking" {% if filter_payment_mode == 'Direct Admin Booking' %}selected{% endif %}>Direct Admin Offline</option>
+            </select>
+          </div>
+
+          <div class="flex gap-2">
+            <button type="submit" id="apply-history-filter-btn" class="flex-1 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors">
+              🔍 Apply
+            </button>
+            <a href="{{ url_for('admin.admin_booking') }}" onclick="resetHistoryFilters(event)" class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-semibold py-2 px-3 rounded-lg text-center transition-colors">
+              ↺ Reset
+            </a>
+          </div>
+        </form>
+      </div>
+
+      <!-- Raft Booking History Table -->
+      <div class="overflow-x-auto rounded-lg border border-gray-200">
+        <table class="w-full text-left text-sm border-collapse" id="adminHistoryTable">
+          <thead>
+            <tr class="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th class="py-3 px-3 text-center">#</th>
+              <th class="py-3 px-3">Customer</th>
+              <th class="py-3 px-3">Phone</th>
+              <th class="py-3 px-3">Location</th>
+              <th class="py-3 px-3 text-center">Date & Slot</th>
+              <th class="py-3 px-3 text-center">Group</th>
+              <th class="py-3 px-3 text-center">Rafts</th>
+              <th class="py-3 px-3 text-right">Total</th>
+              <th class="py-3 px-3 text-right">Advance</th>
+              <th class="py-3 px-3 text-right">Balance</th>
+              <th class="py-3 px-3 text-center">Mode</th>
+              <th class="py-3 px-3 text-center">Created By</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 text-gray-700 bg-white" id="admin-history-table-body">
+            {% for b in admin_bookings %}
+            <tr class="history-row hover:bg-gray-50 transition-colors"
+                data-date="{{ b.date }}"
+                data-created-date="{{ b.created_date_ist }}"
+                data-slot="{{ b.slot }}"
+                data-mode="{{ b.payment_mode or 'Cash' }}">
+              <td class="py-3 px-3 text-center text-gray-500 font-medium">{{ loop.index }}</td>
+              <td class="py-3 px-3 font-bold text-gray-900">
+                <div>{{ b.name or b.user_name or "-" }}</div>
+                {% if b.email %}
+                <div class="text-xs font-normal text-gray-500">{{ b.email }}</div>
+                {% endif %}
+              </td>
+              <td class="py-3 px-3 font-mono text-gray-700 whitespace-nowrap">{{ b.phone }}</td>
+              <td class="py-3 px-3 text-gray-600">{{ b.location or "-" }}</td>
+              <td class="py-3 px-3 text-center font-medium text-teal-800 whitespace-nowrap">
+                <div>{{ b.date }}</div>
+                <div class="text-xs text-gray-500">{{ b.slot }}</div>
+              </td>
+              <td class="py-3 px-3 text-center font-mono font-semibold text-gray-800">{{ b.group_size }}</td>
+              <td class="py-3 px-3 text-center text-xs font-medium text-teal-700">
+                {% if b.raft_allocations %}
+                🛶 {{ b.raft_allocations | join(', ') }}
+                {% else %}
+                -
+                {% endif %}
+              </td>
+              <td class="py-3 px-3 text-right font-mono font-semibold text-gray-900 whitespace-nowrap">₹{{ "%.2f"|format(b.total_amount|float) }}</td>
+              <td class="py-3 px-3 text-right font-mono text-amber-700 font-semibold whitespace-nowrap">₹{{ "%.2f"|format(b.advance_amount|float) }}</td>
+              <td class="py-3 px-3 text-right font-mono font-bold whitespace-nowrap">
+                {% if (b.balance_amount|float) < 0 %}
+                <span class="text-red-600">-₹{{ "%.2f"|format(- (b.balance_amount|float)) }}</span>
+                {% else %}
+                <span class="text-teal-900">₹{{ "%.2f"|format(b.balance_amount|float) }}</span>
+                {% endif %}
+              </td>
+              <td class="py-3 px-3 text-center whitespace-nowrap">
+                <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                  {{ b.payment_mode or 'Cash' }}
+                </span>
+              </td>
+              <td class="py-3 px-3 text-center text-xs text-gray-600 whitespace-nowrap">
+                <div class="font-semibold text-gray-800">{{ b.created_by or 'Admin' }}</div>
+                <div class="text-[10px] text-gray-400">{{ b.created_at_ist }}</div>
+              </td>
+            </tr>
+            {% else %}
+            <tr id="no-admin-bookings-row">
+              <td colspan="12" class="py-8 text-center text-gray-400 font-medium">
+                No admin bookings recorded yet.
+              </td>
+            </tr>
+            {% endfor %}
+            <tr id="no-history-matches-row" class="hidden">
+              <td colspan="12" class="py-8 text-center text-amber-700 bg-amber-50 font-medium">
+                No bookings match the selected filters.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Flatpickr CSS/JS (CDN) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<style>
+  .flatpickr-day.flatpickr-disabled {
+    color: #9CA3AF !important;
+    cursor: not-allowed !important;
+    text-decoration: line-through;
+    opacity: 0.65;
+  }
+</style>
+
+<script>
+  function toggleHistoryFilterPanel(show) {
+    const panel = document.getElementById('history-filter-panel');
+    if (!panel) return;
+    const isHidden = panel.classList.contains('hidden');
+    const shouldShow = (typeof show === 'boolean') ? show : isHidden;
+
+    if (shouldShow) {
+      panel.classList.remove('hidden');
+    } else {
+      panel.classList.add('hidden');
+      if (window.history && window.history.replaceState) {
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('filter_panel')) {
+          url.searchParams.delete('filter_panel');
+          window.history.replaceState({}, '', url.toString());
+        }
+      }
+    }
+  }
+
+  // Ensure filter panel starts hidden when restoring from browser Back/Forward cache (bfcache)
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) {
+      const panel = document.getElementById('history-filter-panel');
+      if (panel) {
+        panel.classList.add('hidden');
+        if (window.history && window.history.replaceState) {
+          const url = new URL(window.location.href);
+          if (url.searchParams.has('filter_panel')) {
+            url.searchParams.delete('filter_panel');
+            window.history.replaceState({}, '', url.toString());
+          }
+        }
+      }
+    }
+  });
+
+  // When leaving page, ensure panel state is not preserved in bfcache snapshot
+  window.addEventListener('pagehide', function () {
+    const panel = document.getElementById('history-filter-panel');
+    if (panel) {
+      panel.classList.add('hidden');
+    }
+  });
+
+  function applyTableFilters() {
+    const fromDate = document.getElementById('filter_from_date')?.value || '';
+    const toDate = document.getElementById('filter_to_date')?.value || '';
+    const slot = document.getElementById('filter_slot')?.value || 'All';
+    const payMode = document.getElementById('filter_payment_mode')?.value || 'All';
+
+    const rows = document.querySelectorAll('#admin-history-table-body tr.history-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+      const rowDate = row.getAttribute('data-created-date') || row.getAttribute('data-date') || '';
+      const rowSlot = row.getAttribute('data-slot') || '';
+      const rowMode = row.getAttribute('data-mode') || '';
+
+      let matchesDate = true;
+      if (fromDate && rowDate < fromDate) matchesDate = false;
+      if (toDate && rowDate > toDate) matchesDate = false;
+
+      let matchesSlot = (slot === 'All' || !slot || rowSlot === slot);
+      let matchesMode = (payMode === 'All' || !payMode || rowMode === payMode || (payMode === 'Cash' && rowMode.includes('Cash')));
+
+      if (matchesDate && matchesSlot && matchesMode) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    const countBadge = document.getElementById('filtered-count-badge');
+    if (countBadge) {
+      countBadge.textContent = visibleCount + ' Bookings';
+    }
+
+    const emptyRow = document.getElementById('no-history-matches-row');
+    if (emptyRow) {
+      if (visibleCount === 0 && rows.length > 0) {
+        emptyRow.style.display = '';
+      } else {
+        emptyRow.style.display = 'none';
+      }
+    }
+  }
+
+  function resetHistoryFilters(e) {
+    const fromIn = document.getElementById('filter_from_date');
+    const toIn = document.getElementById('filter_to_date');
+    const slotIn = document.getElementById('filter_slot');
+    const modeIn = document.getElementById('filter_payment_mode');
+
+    if (fromIn) fromIn.value = '';
+    if (toIn) toIn.value = '';
+    if (slotIn) slotIn.value = 'All';
+    if (modeIn) modeIn.value = 'All';
+
+    applyTableFilters();
+    if (window.location.search) {
+      return true;
+    }
+    if (e) e.preventDefault();
+  }
+
+  function toggleBookingForm(show) {
+    const wrapper = document.getElementById('booking-form-wrapper');
+    const btnIcon = document.getElementById('btn-icon');
+    const btnText = document.getElementById('btn-text');
+    const btn = document.getElementById('toggle-form-btn');
+    if (!wrapper) return;
+
+    const isHidden = wrapper.classList.contains('hidden');
+    const shouldShow = (typeof show === 'boolean') ? show : isHidden;
+
+    if (shouldShow) {
+      wrapper.classList.remove('hidden');
+      if (btnIcon) btnIcon.textContent = '✖';
+      if (btnText) btnText.textContent = 'Hide Form';
+      if (btn) {
+        btn.classList.remove('bg-teal-600', 'hover:bg-teal-700');
+        btn.classList.add('bg-gray-600', 'hover:bg-gray-700');
+      }
+      const nameInput = document.querySelector('input[name="name"]');
+      if (nameInput) setTimeout(() => nameInput.focus(), 100);
+    } else {
+      wrapper.classList.add('hidden');
+      if (btnIcon) btnIcon.textContent = '➕';
+      if (btnText) btnText.textContent = 'Create Booking';
+      if (btn) {
+        btn.classList.remove('bg-gray-600', 'hover:bg-gray-700');
+        btn.classList.add('bg-teal-600', 'hover:bg-teal-700');
+      }
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const dateInput = document.getElementById('booking_date');
+    const minDate = '{{ min_date }}';
+    const maxDate = '{{ max_date }}';
+
+    function initDatepicker() {
+      let fpInstance = null;
+      let disabledDates = [];
+      let disabledDatesLoaded = false;
+
+      try {
+        fpInstance = flatpickr(dateInput, {
+          altInput: true,
+          altFormat: 'd-m-Y',
+          dateFormat: 'Y-m-d',
+          allowInput: false,
+          minDate: minDate,
+          maxDate: maxDate,
+          disable: [],
+          disableMobile: true,
+          onChange: function (selectedDates, dateStr, instance) {
+            if (!dateStr) return;
+            const currentDisabled = instance.config.disable || [];
+            if (currentDisabled.some(d => d === dateStr)) {
+              alert('Selected date is fully booked. Please choose another date.');
+              instance.clear();
+              updateSlotAvailability(null);
+              return;
+            }
+            updateSlotAvailability(dateStr);
+            recalculatePricing();
+          }
+        });
+
+        const calBtn = document.getElementById('booking_date_btn');
+        if (calBtn) {
+          calBtn.addEventListener('click', function () { fpInstance.open(); });
+        }
+      } catch (err) {
+        console.error('Flatpickr init failed', err);
+        try {
+          dateInput.setAttribute('type', 'date');
+          dateInput.setAttribute('min', minDate);
+          dateInput.setAttribute('max', maxDate);
+        } catch (e) { }
+      }
+
+      let fetchTimeout = null;
+      function fetchDisabledDates() {
+        if (disabledDatesLoaded) return;
+        clearTimeout(fetchTimeout);
+        fetchTimeout = setTimeout(() => {
+          fetch('/fully_booked_dates?_t=' + Date.now())
+            .then(res => res.json())
+            .then(data => {
+              if (data.fully_booked_dates && fpInstance) {
+                disabledDates = data.fully_booked_dates;
+                fpInstance.set('disable', disabledDates);
+                fpInstance.redraw();
+                disabledDatesLoaded = true;
+              }
+            })
+            .catch(err => console.error('Failed to fetch fully booked dates', err));
+        }, 500);
+      }
+
+      let calendarOpened = false;
+      const calButton = document.getElementById('booking_date_btn');
+      if (calButton && fpInstance) {
+        const originalOpen = fpInstance.open.bind(fpInstance);
+        fpInstance.open = function() {
+          if (!calendarOpened && !disabledDatesLoaded) {
+            calendarOpened = true;
+            fetchDisabledDates();
+          }
+          return originalOpen();
+        };
+      }
+      setTimeout(() => {
+        if (!disabledDatesLoaded) {
+          fetchDisabledDates();
+        }
+      }, 1000);
+    }
+
+    initDatepicker();
+  });
+</script>
+
+<script>
+  let slotAvailMap = {};
+  let updateSlotTimeout = null;
+
+  async function updateSlotAvailability(day) {
+    const slotSelect = document.getElementById('slot-select');
+    const groupSizeInput = document.getElementById('group_size_input');
+    
+    if (!slotSelect) return;
+    if (!day) {
+      Array.from(slotSelect.querySelectorAll('option[data-dynamic="true"]')).forEach(opt => opt.remove());
+      Array.from(slotSelect.options).forEach(opt => {
+        opt.disabled = false;
+        opt.style.color = '';
+      });
+      if (groupSizeInput) {
+        groupSizeInput.removeAttribute('max');
+      }
+      slotAvailMap = {};
+      return;
+    }
+
+    clearTimeout(updateSlotTimeout);
+    updateSlotTimeout = setTimeout(async () => {
+      try {
+        const res = await fetch('/slot_availability?day=' + encodeURIComponent(day) + '&_t=' + Date.now());
+        if (!res.ok) return;
+        const json = await res.json();
+        slotAvailMap = json || {};
+
+        // Dynamic slots from slotAvailMap (for date-specific immediate slots)
+        Array.from(slotSelect.querySelectorAll('option[data-dynamic="true"]')).forEach(opt => opt.remove());
+        if (slotAvailMap) {
+          const existingValues = new Set(Array.from(slotSelect.options).map(o => o.value));
+          Object.keys(slotAvailMap).forEach(s => {
+            if (s && !existingValues.has(s)) {
+              const newOpt = document.createElement('option');
+              newOpt.value = s;
+              newOpt.textContent = s;
+              newOpt.setAttribute('data-label', s);
+              newOpt.setAttribute('data-dynamic', 'true');
+              slotSelect.appendChild(newOpt);
+            }
+          });
+        }
+
+        Array.from(slotSelect.options).forEach(opt => {
+          const val = opt.value;
+          const info = slotAvailMap[val];
+          if (info && info.full) {
+            opt.disabled = true;
+            opt.style.color = '#9CA3AF';
+            opt.textContent = (opt.getAttribute('data-label') || val) + ' (FULL)';
+          } else {
+            opt.disabled = false;
+            opt.style.color = '';
+            opt.textContent = opt.getAttribute('data-label') || val;
+          }
+        });
+
+        if (slotSelect.value) {
+          const curOpt = slotSelect.options[slotSelect.selectedIndex];
+          if (curOpt && curOpt.disabled) {
+            const avail = Array.from(slotSelect.options).find(o => !o.disabled);
+            if (avail) slotSelect.value = avail.value;
+            else slotSelect.value = '';
+          }
+        }
+
+        if (groupSizeInput && slotSelect.value) {
+          const selInfo = slotAvailMap[slotSelect.value];
+          if (selInfo) {
+            const avail = selInfo.available || 0;
+            if (avail > 0) {
+              groupSizeInput.max = avail;
+            } else {
+              groupSizeInput.max = 0;
+              groupSizeInput.value = '';
+            }
+          }
+        }
+        recalculatePricing();
+      } catch (err) {
+        console.error('Error updating slot availability', err);
+      }
+    }, 300);
+
+    if (slotSelect && !slotSelect._listenerAttached) {
+      slotSelect._listenerAttached = true;
+      slotSelect.addEventListener('change', function () {
+        if (!slotAvailMap) return;
+        const info = slotAvailMap[this.value];
+        if (groupSizeInput) {
+          if (info) {
+            const avail = info.available || 0;
+            groupSizeInput.max = avail > 0 ? avail : 0;
+          } else {
+            groupSizeInput.removeAttribute('max');
+          }
+        }
+        recalculatePricing();
+      });
+    }
+  }
+</script>
+
+<script>
+  function recalculatePricing() {
+    const dateInput = document.getElementById('booking_date');
+    const slotSelect = document.getElementById('slot-select');
+    const groupInput = document.getElementById('group_size_input');
+    const customAdvInput = document.getElementById('custom_advance_amount');
+    const perPersonDiscInput = document.getElementById('per_person_discount');
+    const couponInput = document.getElementById('coupon_code_input');
+    const phoneInput = document.querySelector('input[name="phone"]');
+    const emailInput = document.querySelector('input[name="email"]');
+
+    if (!dateInput || !slotSelect || !groupInput) return;
+
+    const selectedDate = (dateInput.value || '').trim();
+    const selectedSlot = (slotSelect.value || '').trim();
+    if (!selectedDate || !selectedSlot) {
+      const capBox = document.getElementById('capacityInfoBox');
+      const capText = document.getElementById('availCapacityText');
+      const confirmBtn = document.getElementById('confirm-booking-btn');
+      const errorBanner = document.getElementById('booking-error-banner');
+      if (capBox) capBox.classList.add('hidden');
+      if (capText) capText.innerText = '';
+      if (errorBanner) {
+        errorBanner.classList.add('hidden');
+        errorBanner.textContent = '';
+      }
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+      return;
+    }
+
+    const payload = {
+      date: selectedDate,
+      slot: selectedSlot,
+      group_size: groupInput.value,
+      custom_advance: customAdvInput ? customAdvInput.value : '',
+      per_person_discount: perPersonDiscInput ? perPersonDiscInput.value : '',
+      coupon_code: couponInput ? couponInput.value : '',
+      phone: phoneInput ? phoneInput.value : '',
+      email: emailInput ? emailInput.value : ''
+    };
+
+    fetch("{{ url_for('admin.calculate_admin_booking_pricing') }}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (!data.success) return;
+      if (data.available_capacity === null || data.available_capacity === undefined) return;
+
+      if (customAdvInput) {
+        customAdvInput.max = data.total_amount;
+        if (customAdvInput.value && parseFloat(customAdvInput.value) > data.total_amount) {
+          customAdvInput.value = data.total_amount;
+        }
+      }
+
+      const capBox = document.getElementById('capacityInfoBox');
+      const capText = document.getElementById('availCapacityText');
+      const confirmBtn = document.getElementById('confirm-booking-btn');
+      const errorBanner = document.getElementById('booking-error-banner');
+
+      const rawGroupVal = (groupInput.value || '').trim();
+      const hasGroupVal = rawGroupVal !== '' && !isNaN(rawGroupVal);
+      const wanted = hasGroupVal ? parseInt(rawGroupVal, 10) : 0;
+
+      if (data.available_capacity <= 0) {
+        const msg = 'Selected slot is fully booked. Please select another slot or date.';
+        if (errorBanner) {
+          errorBanner.textContent = '❌ ' + msg;
+          errorBanner.classList.remove('hidden');
+        }
+        if (capBox) capBox.className = "text-xs font-normal bg-red-200 text-red-900 px-2 py-1 rounded";
+        if (capText) capText.innerText = '0 seats (Full!)';
+        if (confirmBtn) {
+          confirmBtn.disabled = true;
+          confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+      } else if (hasGroupVal && wanted > data.available_capacity) {
+        const msg = `Invalid group size. Maximum available for this slot is ${data.available_capacity} people.`;
+        if (errorBanner) {
+          errorBanner.textContent = '❌ ' + msg;
+          errorBanner.classList.remove('hidden');
+        }
+        if (capBox) capBox.className = "text-xs font-normal bg-red-200 text-red-900 px-2 py-1 rounded";
+        if (capText) capText.innerText = data.available_capacity + ' seats (Full!)';
+        if (confirmBtn) {
+          confirmBtn.disabled = true;
+          confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+      } else if (hasGroupVal && wanted > 0 && wanted < 4 && !data.has_small_group_capacity) {
+        const msg = 'Oops! Your entered group size is below the minimum requirement.';
+        if (errorBanner) {
+          errorBanner.textContent = '❌ ' + msg;
+          errorBanner.classList.remove('hidden');
+        }
+        if (capBox) capBox.className = "text-xs font-normal bg-yellow-200 text-yellow-900 px-2 py-1 rounded";
+        if (capText) capText.innerText = data.available_capacity + ' seats (Min group 4 required)';
+        if (confirmBtn) {
+          confirmBtn.disabled = true;
+          confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+      } else {
+        if (errorBanner) {
+          errorBanner.classList.add('hidden');
+          errorBanner.textContent = '';
+        }
+        if (capBox) capBox.className = "text-xs font-normal bg-teal-200 text-teal-900 px-2 py-1 rounded";
+        if (capText) capText.innerText = data.available_capacity + ' seats available';
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+      }
+    })
+    .catch(err => console.error("Pricing calc error:", err));
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const form = document.querySelector('form');
+    const emailInput = document.querySelector('input[name="email"]');
+    const errorMsgDiv = document.getElementById('email-error-msg');
+
+    if (emailInput && errorMsgDiv) {
+      emailInput.addEventListener('invalid', function (e) {
+        e.preventDefault();
+        errorMsgDiv.textContent = 'Please enter a valid Gmail address (ending in @gmail.com).';
+        errorMsgDiv.classList.remove('hidden');
+        errorMsgDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+
+      if (form) {
+        form.addEventListener('submit', function (e) {
+          const emailVal = emailInput.value.trim().toLowerCase();
+          if (emailVal.length > 0 && !emailVal.endsWith('@gmail.com')) {
+            e.preventDefault();
+            errorMsgDiv.textContent = 'Please enter a valid Gmail address (ending in @gmail.com).';
+            errorMsgDiv.classList.remove('hidden');
+            errorMsgDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            emailInput.focus();
+            return;
+          } else {
+            errorMsgDiv.classList.add('hidden');
+          }
+
+          if (!e.defaultPrevented) {
+            const confirmBtn = document.getElementById('confirm-booking-btn');
+            if (confirmBtn) {
+              confirmBtn.style.pointerEvents = 'none';
+              confirmBtn.style.opacity = '0.6';
+              confirmBtn.style.cursor = 'not-allowed';
+              confirmBtn.innerHTML = '<span style="font-size:1.2rem;vertical-align:middle;margin-right:6px;">⏳</span><span style="font-weight:bold;">Processing... Please wait...</span>';
+              setTimeout(function () { confirmBtn.disabled = true; }, 0);
+            }
+          }
+        });
+      }
+
+      emailInput.addEventListener('input', function () {
+        const emailVal = emailInput.value.trim().toLowerCase();
+        if (!emailVal || emailVal.endsWith('@gmail.com')) {
+          errorMsgDiv.classList.add('hidden');
+        }
+      });
+    }
+
+    // Dynamic Coupon Code Handler
+    const phoneInput = document.querySelector('input[name="phone"]');
+    const groupSizeInput = document.getElementById('group_size_input');
+    const emailInputForCoupon = document.querySelector('input[name="email"]');
+    const couponSection = document.getElementById('coupon-section');
+    const couponBadge = document.getElementById('coupon-badge');
+    const couponInput = document.getElementById('coupon_code_input');
+    const applyBtn = document.getElementById('apply-coupon-btn');
+    const couponMsg = document.getElementById('coupon-msg');
+
+    let checkedKey = '';
+
+    function resetCouponSection() {
+      if (couponSection) couponSection.classList.add('hidden');
+      if (couponBadge) couponBadge.textContent = '';
+      if (couponInput) {
+        couponInput.value = '';
+        couponInput.readOnly = false;
+        couponInput.classList.remove('bg-emerald-100', 'text-emerald-900', 'border-emerald-400', 'cursor-not-allowed', 'opacity-90');
+      }
+      if (couponMsg) {
+        couponMsg.textContent = '';
+        couponMsg.className = 'text-xs mt-1 font-medium hidden';
+      }
+      if (applyBtn) applyBtn.classList.remove('hidden');
+    }
+
+    const bookingDateInput = document.getElementById('booking_date');
+
+    async function checkPhoneCoupon() {
+      const phone = phoneInput ? phoneInput.value.trim() : '';
+      const groupSizeVal = groupSizeInput ? groupSizeInput.value.trim() : '';
+      const groupSize = parseInt(groupSizeVal, 10);
+      const emailVal = emailInputForCoupon ? emailInputForCoupon.value.trim().toLowerCase() : '';
+      const dateVal = bookingDateInput ? bookingDateInput.value.trim() : '';
+
+      if (phone.length === 10 && /^\d{10}$/.test(phone) && !isNaN(groupSize) && groupSize > 0) {
+        const currentKey = `${phone}_${emailVal}_${groupSize}_${dateVal}`;
+        if (currentKey === checkedKey && couponSection && !couponSection.classList.contains('hidden')) return;
+        checkedKey = currentKey;
+        try {
+          const res = await fetch(`/check_coupon?phone=${encodeURIComponent(phone)}&email=${encodeURIComponent(emailVal)}&group_size=${encodeURIComponent(groupSize)}&date=${encodeURIComponent(dateVal)}`);
+          const data = await res.json();
+          if (data.has_coupon) {
+            couponSection.classList.remove('hidden');
+            const discountText = data.discount_type === 'per_head' ? `₹${data.discount_value}/head OFF` : (data.discount_type === 'flat' ? `₹${data.discount_value} OFF` : `${data.discount_value}% OFF`);
+            couponBadge.textContent = discountText;
+            if (data.code && (!couponInput.value || couponInput.value.trim() === '' || couponInput.value !== data.code)) {
+              couponInput.value = data.code;
+            }
+          } else {
+            resetCouponSection();
+          }
+        } catch (e) {
+          console.error('Error checking coupon:', e);
+        }
+      } else {
+        resetCouponSection();
+        checkedKey = '';
+      }
+      recalculatePricing();
+    }
+
+    if (phoneInput) {
+      phoneInput.addEventListener('input', checkPhoneCoupon);
+      phoneInput.addEventListener('blur', checkPhoneCoupon);
+    }
+    if (groupSizeInput) {
+      groupSizeInput.addEventListener('input', checkPhoneCoupon);
+      groupSizeInput.addEventListener('change', checkPhoneCoupon);
+      groupSizeInput.addEventListener('blur', checkPhoneCoupon);
+    }
+    if (emailInputForCoupon) {
+      emailInputForCoupon.addEventListener('input', checkPhoneCoupon);
+      emailInputForCoupon.addEventListener('change', checkPhoneCoupon);
+      emailInputForCoupon.addEventListener('blur', checkPhoneCoupon);
+    }
+
+    const customAdv = document.getElementById('custom_advance_amount');
+    if (customAdv) {
+      customAdv.addEventListener('input', recalculatePricing);
+      customAdv.addEventListener('change', recalculatePricing);
+    }
+
+    const perPersonDisc = document.getElementById('per_person_discount');
+    if (perPersonDisc) {
+      perPersonDisc.addEventListener('input', recalculatePricing);
+      perPersonDisc.addEventListener('change', recalculatePricing);
+    }
+
+    // Attach listeners for History Table Filters
+    const fFrom = document.getElementById('filter_from_date');
+    const fTo = document.getElementById('filter_to_date');
+    const fSlot = document.getElementById('filter_slot');
+    const fMode = document.getElementById('filter_payment_mode');
+
+    [fFrom, fTo, fSlot, fMode].forEach(el => {
+      if (el) {
+        el.addEventListener('input', applyTableFilters);
+        el.addEventListener('change', applyTableFilters);
+      }
+    });
+
+    applyTableFilters();
+
+    if (applyBtn) {
+      applyBtn.addEventListener('click', async function () {
+        const phone = phoneInput ? phoneInput.value.trim() : '';
+        const code = couponInput ? couponInput.value.trim() : '';
+        const email = emailInputForCoupon ? emailInputForCoupon.value.trim() : '';
+        const groupSize = groupSizeInput ? groupSizeInput.value.trim() : '';
+        if (!code) return;
+        try {
+          const res = await fetch('/validate_coupon', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ phone: phone, code: code, email: email, group_size: groupSize })
+          });
+          const data = await res.json();
+          if (couponMsg) {
+            couponMsg.classList.remove('hidden');
+            if (data.valid) {
+              const discountText = data.discount_type === 'per_head' ? `₹${data.discount_value}/head OFF` : (data.discount_type === 'flat' ? `₹${data.discount_value} OFF` : `${data.discount_value}% OFF`);
+              couponMsg.className = 'text-xs mt-1 font-semibold text-emerald-700';
+              couponMsg.textContent = `✓ Coupon ${data.code} Applied! (${discountText})`;
+              if (couponBadge) couponBadge.textContent = `✓ Applied (${discountText})`;
+              if (couponInput) {
+                couponInput.readOnly = true;
+                couponInput.classList.add('bg-emerald-100', 'text-emerald-900', 'border-emerald-400', 'cursor-not-allowed', 'opacity-90');
+              }
+              if (applyBtn) applyBtn.classList.add('hidden');
+            } else {
+              couponMsg.className = 'text-xs mt-1 font-medium text-red-600';
+              couponMsg.textContent = `❌ ${data.message || 'Invalid coupon code.'}`;
+              if (couponInput) {
+                couponInput.readOnly = false;
+                couponInput.classList.remove('bg-emerald-100', 'text-emerald-900', 'border-emerald-400', 'cursor-not-allowed', 'opacity-90');
+              }
+              if (applyBtn) applyBtn.classList.remove('hidden');
+            }
+          }
+        } catch (e) {
+          if (couponMsg) {
+            couponMsg.classList.remove('hidden');
+            couponMsg.className = 'text-xs mt-1 font-medium text-red-600';
+            couponMsg.textContent = '❌ Failed to validate coupon.';
+          }
+        }
+        recalculatePricing();
+      });
+    }
+
+    window.addEventListener('pageshow', function () {
+      const confirmBtn = document.getElementById('confirm-booking-btn');
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.style.pointerEvents = '';
+        confirmBtn.style.opacity = '';
+        confirmBtn.style.cursor = '';
+        confirmBtn.innerHTML = 'Confirm Raft Booking';
+      }
+    });
+
+    recalculatePricing();
+
+    // Dynamically sync filter_slot with filter_from_date and filter_to_date
+    const filterFromDate = document.getElementById('filter_from_date');
+    const filterToDate = document.getElementById('filter_to_date');
+    const filterSlot = document.getElementById('filter_slot');
+    if (filterFromDate && filterToDate && filterSlot) {
+      async function syncAdminBookingSlots() {
+        const fromVal = (filterFromDate.value || '').trim();
+        const toVal = (filterToDate.value || '').trim();
+        if (!fromVal && !toVal) return;
+        try {
+          const res = await fetch(`/admin/api/slots_for_date_range?from=${encodeURIComponent(fromVal)}&to=${encodeURIComponent(toVal)}&_t=${Date.now()}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!data.success || !Array.isArray(data.slots)) return;
+          const currentVal = filterSlot.value;
+          let html = '<option value="All">All Slots</option>';
+          data.slots.forEach(s => {
+            const isSel = (s === currentVal) ? 'selected' : '';
+            html += `<option value="${s}" ${isSel}>${s}</option>`;
+          });
+          if (currentVal && currentVal !== 'All' && !data.slots.includes(currentVal)) {
+            html += `<option value="${currentVal}" selected>${currentVal}</option>`;
+          }
+          filterSlot.innerHTML = html;
+        } catch (e) {
+          console.warn('Could not sync admin booking slots:', e);
+        }
+      }
+      filterFromDate.addEventListener('change', syncAdminBookingSlots);
+      filterToDate.addEventListener('change', syncAdminBookingSlots);
+    }
+  });
+</script>
+{% endblock %}

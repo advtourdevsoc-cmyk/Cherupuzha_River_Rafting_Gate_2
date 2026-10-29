@@ -1,0 +1,2249 @@
+{% extends "admin_base.html" %}
+{% block content %}
+<div>
+  <h1 class="text-2xl font-bold mb-4">
+    {% if current_user.is_subadmin() %}
+    Sub-Admin Dashboard
+    {% else %}
+    Admin Dashboard
+    {% endif %}
+  </h1>
+
+  <div class="bg-white shadow rounded-lg p-4">
+    <div class="flex flex-col md:flex-row md:items-center md:items-start justify-between mb-4">
+      <div class="flex flex-col gap-3 mb-3 md:mb-0 w-full">
+        <div class="flex justify-between items-center w-full">
+          <h2 class="text-lg font-semibold">
+            {% if is_subadmin %}
+            Bookings Overview
+            {% else %}
+            All Bookings
+            {% endif %}
+          </h2>
+
+          {% if not is_subadmin %}
+          <!-- Admin Action Buttons aligned right -->
+          <div class="flex items-center gap-2">
+            <button id="exportPdfBtn" onclick="exportAllBookingsToPDF()"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 shadow-sm">
+              <span id="exportPdfBtnIcon">📄</span>
+              <span id="exportPdfBtnText">Export to PDF</span>
+            </button>
+            <button id="exportExcelBtn" onclick="exportAllBookingsToExcel()"
+              class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 shadow-sm"
+              title="Export all matching bookings to Excel (.xlsx)">
+              <span id="exportExcelBtnIcon">📊</span>
+              <span id="exportExcelBtnText">Export to Excel</span>
+            </button>
+          </div>
+          {% endif %}
+
+        </div>
+
+        {% if is_subadmin %}
+        <!-- Sub-Admin View: Slot filter and refresh button -->
+        <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <label for="subadminSlotFilter" class="text-sm font-medium text-gray-700">Filter by Slot:</label>
+            <select id="subadminSlotFilter" class="border border-gray-300 rounded px-3 py-1.5 text-sm">
+              <option value="">All Slots</option>
+              {% for s in (all_slots if all_slots else (settings.time_slots if settings and settings.time_slots else
+              [])) %}
+              <option value="{{ s }}" {% if filter_slot==s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+              {% if filter_slot and filter_slot not in (all_slots if all_slots else (settings.time_slots if settings and
+              settings.time_slots else [])) %}
+              <option value="{{ filter_slot }}" selected>{{ filter_slot }}</option>
+              {% endif %}
+            </select>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button onclick="applySubadminFilters()"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm">Apply</button>
+            <button onclick="clearSubadminFilters()"
+              class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-1.5 rounded text-sm">Clear</button>
+            <button onclick="refreshSubadminBookings()"
+              class="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-sm flex items-center gap-2">
+              <span>🔄</span>
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+        {% else %}
+        <!-- Admin View: Date range and other filters -->
+        <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+          <!-- From date -->
+          <div style="display:flex; align-items:center; gap:8px; min-width:180px;">
+            <label for="fromDate" class="text-sm font-medium text-gray-700">From:</label>
+            <input type="date" id="fromDate" name="fromDate" value="{{ filter_from|default('') }}"
+              class="border border-gray-300 rounded px-3 py-1.5 text-sm" />
+          </div>
+          <!-- To date -->
+          <div style="display:flex; align-items:center; gap:8px; min-width:180px;">
+            <label for="toDate" class="text-sm font-medium text-gray-700">To:</label>
+            <input type="date" id="toDate" name="toDate" value="{{ filter_to|default('') }}"
+              class="border border-gray-300 rounded px-3 py-1.5 text-sm" />
+          </div>
+          <!-- Slot filter -->
+          <div style="display:flex; align-items:center; gap:8px; min-width:200px;">
+            <label for="slotFilter" class="text-sm font-medium text-gray-700">Slot:</label>
+            <select id="slotFilter" class="border border-gray-300 rounded px-3 py-1.5 text-sm">
+              <option value="">All Slots</option>
+              {% for s in (all_slots if all_slots else (settings.time_slots if settings and settings.time_slots else
+              [])) %}
+              <option value="{{ s }}" {% if filter_slot==s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+              {% if filter_slot and filter_slot not in (all_slots if all_slots else (settings.time_slots if settings and
+              settings.time_slots else [])) %}
+              <option value="{{ filter_slot }}" selected>{{ filter_slot }}</option>
+              {% endif %}
+            </select>
+          </div>
+          <!-- Status filter -->
+          <div style="display:flex; align-items:center; gap:8px; min-width:200px;">
+            <label for="statusFilter" class="text-sm font-medium text-gray-700">Status:</label>
+            <select id="statusFilter" class="border border-gray-300 rounded px-3 py-1.5 text-sm">
+              <option value="Confirmed" {% if filter_status=='' or filter_status=='Confirmed' %}selected{% endif %}>✅
+                Confirmed</option>
+              <option value="all" {% if filter_status.lower()=='all' %}selected{% endif %}>All Statuses</option>
+              <option value="Visited" {% if filter_status=='Visited' or filter_status=='visited' %}selected{% endif %}>
+                🔍 Visited</option>
+              <option value="Pending" {% if filter_status=='Pending' %}selected{% endif %}>⏳ Pending</option>
+              <option value="Cancelled" {% if filter_status=='Cancelled' %}selected{% endif %}>❌ Cancelled</option>
+
+            </select>
+          </div>
+          <!-- force break -->
+          <div style="flex-basis:100%; height:0;"></div>
+          <!-- Buttons below filters -->
+          <div style="width:100%; display:flex; justify-content:flex-end; gap:8px;">
+            <a href="{{ url_for('admin.sync_payments_route') }}"
+              class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded text-sm flex items-center gap-1.5 font-medium shadow-sm transition">
+              🔄 Sync Razorpay Payments
+            </a>
+            <button onclick="applyFilters()"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm">Apply</button>
+            <button onclick="clearFilters()"
+              class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-1.5 rounded text-sm">Clear</button>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Tables -->
+    <div class="overflow-x-auto">
+      {% if is_subadmin %}
+      <!-- Sub-Admin View: Today & Tomorrow Separate Tables -->
+
+      <!-- TODAY -->
+      <h3 class="text-md font-bold mb-2 text-teal-700">Today's Bookings ({{ bookings_today|length }})</h3>
+      <table class="min-w-full border border-gray-300 rounded mb-6">
+        <thead>
+          <tr class="bg-gray-100">
+            <th class="px-3 py-2 border">Sl No</th>
+            <th class="px-4 py-2 border">Name</th>
+            <th class="px-4 py-2 border">Phone Number</th>
+            <th class="px-4 py-2 border">Email</th>
+            <th class="px-4 py-2 border">Location</th>
+            <th class="px-4 py-2 border">Date</th>
+            <th class="px-4 py-2 border">Slot</th>
+            <th class="px-4 py-2 border">Group Size</th>
+            <th class="px-4 py-2 border">Rafts</th>
+            <th class="px-4 py-2 border">Payment Status</th>
+            <th class="px-4 py-2 border">Advance</th>
+            <th class="px-4 py-2 border">Balance Amount</th>
+            <th class="px-4 py-2 border">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in bookings_today %}
+          {% set c_code = b.coupon_code or b.get('booking_details', {}).get('coupon_code') %}
+          {% set c_disc = b.coupon_discount_applied or b.get('booking_details', {}).get('coupon_discount_applied', 0) %}
+          {% set is_admin = b.is_admin_booking or b.get('booking_details', {}).get('is_admin_booking') %}
+          <tr class="text-center border-t {% if c_code %}bg-emerald-50/40{% endif %}">
+            <td class="border px-3 py-2 font-medium text-gray-600">{{ loop.index }}</td>
+            <td class="border px-4 py-2">
+              <div class="flex flex-col items-center justify-center gap-1">
+                <span>{{ b.user_name or b.name or "Unknown" }}</span>
+                {% if is_admin %}
+                <span
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300 shadow-sm"
+                  title="Created via Admin Booking form">
+                  🚣 Admin Booking
+                </span>
+                {% endif %}
+                {% if c_code %}
+                <span
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm"
+                  title="Discount: ₹{{ '%.2f'|format(c_disc|float) }} applied">
+                  🎟️ {{ c_code }}
+                </span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="border px-4 py-2" title="{{ b.phone }}">{{ b.phone | format_phone }}</td>
+            <td class="border px-4 py-2">{{ b.email or "-" }}</td>
+            <td class="border px-4 py-2">{{ b.location or b.get('booking_details', {}).get('location') or "-" }}</td>
+            <td class="border px-4 py-2">{{ b.date }}</td>
+            <td class="border px-4 py-2">{{ b.slot }}</td>
+            <td class="border px-4 py-2">{{ b.group_size }}</td>
+            <td class="border px-4 py-2">
+              {% if b.raft_allocations %}
+              🛶 {{ b.raft_allocations | join(', ') }}
+              {% else %}
+              -
+              {% endif %}
+            </td>
+            <td class="border px-4 py-2">
+              {{ b.payment_status_display or 'Not paid' }}
+            </td>
+            <td class="border px-4 py-2">
+              <div>₹{{ "%.2f"|format((b.advance_amount or 0)|float) }}</div>
+              {% if c_disc and c_disc|float > 0 %}
+              <div class="text-xs text-emerald-700 font-semibold" title="Coupon discount applied">
+                (-₹{{ "%.2f"|format(c_disc|float) }} coupon)
+              </div>
+              {% endif %}
+            </td>
+            <td class="border px-4 py-2">
+              {% if ((b.balance_amount or 0)|float) < 0 %} <span class="text-red-600 font-semibold">-₹{{
+                "%.2f"|format(-((b.balance_amount or 0)|float)) }}</span>
+                {% else %}
+                ₹{{ "%.2f"|format((b.balance_amount or 0)|float) }}
+                {% endif %}
+            </td>
+            <td class="border px-4 py-2">
+              <span class="text-green-600 font-semibold">{{ b.status }}</span>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="11" class="text-center py-4 text-gray-500">No confirmed bookings for today.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <!-- TOMORROW -->
+      <h3 class="text-md font-bold mb-2 text-indigo-700">Tomorrow's Bookings ({{ bookings_tomorrow|length }})</h3>
+      <table class="min-w-full border border-gray-300 rounded">
+        <thead>
+          <tr class="bg-gray-100">
+            <th class="px-3 py-2 border">Sl No</th>
+            <th class="px-4 py-2 border">Name</th>
+            <th class="px-4 py-2 border">Phone Number</th>
+            <th class="px-4 py-2 border">Email</th>
+            <th class="px-4 py-2 border">Location</th>
+            <th class="px-4 py-2 border">Date</th>
+            <th class="px-4 py-2 border">Slot</th>
+            <th class="px-4 py-2 border">Group Size</th>
+            <th class="px-4 py-2 border">Rafts</th>
+            <th class="px-4 py-2 border">Payment Status</th>
+            <th class="px-4 py-2 border">Advance</th>
+            <th class="px-4 py-2 border">Balance Amount</th>
+            <th class="px-4 py-2 border">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in bookings_tomorrow %}
+          {% set c_code = b.coupon_code or b.get('booking_details', {}).get('coupon_code') %}
+          {% set c_disc = b.coupon_discount_applied or b.get('booking_details', {}).get('coupon_discount_applied', 0) %}
+          {% set is_admin = b.is_admin_booking or b.get('booking_details', {}).get('is_admin_booking') %}
+          <tr class="text-center border-t {% if c_code %}bg-emerald-50/40{% endif %}">
+            <td class="border px-3 py-2 font-medium text-gray-600">{{ loop.index }}</td>
+            <td class="border px-4 py-2">
+              <div class="flex flex-col items-center justify-center gap-1">
+                <span>{{ b.user_name or b.name or "Unknown" }}</span>
+                {% if is_admin %}
+                <span
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300 shadow-sm"
+                  title="Created via Admin Booking form">
+                  🚣 Admin Booking
+                </span>
+                {% endif %}
+                {% if c_code %}
+                <span
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm"
+                  title="Discount: ₹{{ '%.2f'|format(c_disc|float) }} applied">
+                  🎟️ {{ c_code }}
+                </span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="border px-4 py-2" title="{{ b.phone }}">{{ b.phone | format_phone }}</td>
+            <td class="border px-4 py-2">{{ b.email or "-" }}</td>
+            <td class="border px-4 py-2">{{ b.location or b.get('booking_details', {}).get('location') or "-" }}</td>
+            <td class="border px-4 py-2">{{ b.date }}</td>
+            <td class="border px-4 py-2">{{ b.slot }}</td>
+            <td class="border px-4 py-2">{{ b.group_size }}</td>
+            <td class="border px-4 py-2">
+              {% if b.raft_allocations %}
+              🛶 {{ b.raft_allocations | join(', ') }}
+              {% else %}
+              -
+              {% endif %}
+            </td>
+            <td class="border px-4 py-2">
+              {{ b.payment_status_display or 'Not paid' }}
+            </td>
+            <td class="border px-4 py-2">
+              <div>₹{{ "%.2f"|format((b.advance_amount or 0)|float) }}</div>
+              {% if c_disc and c_disc|float > 0 %}
+              <div class="text-xs text-emerald-700 font-semibold" title="Coupon discount applied">
+                (-₹{{ "%.2f"|format(c_disc|float) }} coupon)
+              </div>
+              {% endif %}
+            </td>
+            <td class="border px-4 py-2">
+              {% if ((b.balance_amount or 0)|float) < 0 %} <span class="text-red-600 font-semibold">-₹{{
+                "%.2f"|format(-((b.balance_amount or 0)|float)) }}</span>
+                {% else %}
+                ₹{{ "%.2f"|format((b.balance_amount or 0)|float) }}
+                {% endif %}
+            </td>
+            <td class="border px-4 py-2">
+              <span class="text-green-600 font-semibold">{{ b.status }}</span>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="11" class="text-center py-4 text-gray-500">No confirmed bookings for tomorrow.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {% else %}
+      <!-- Admin View: Single Table (Filtered) -->
+      <div class="mb-3 text-sm text-gray-600">
+        <span id="bookingCount">{{ bookings|length }}</span> booking{{ 's' if bookings|length != 1 else '' }} found
+        {% if filter_from and filter_to and filter_from == filter_to and filter_from == today_str|default('') %}
+        <span class="text-blue-600">(Today)</span>
+        {% elif filter_from or filter_to %}
+        <span class="text-blue-600">(filtered)</span>
+        {% endif %}
+      </div>
+
+      <table class="min-w-full border border-gray-300 rounded">
+        <thead>
+          <tr class="bg-gray-100">
+            <th class="px-3 py-2 border">Sl No</th>
+            <th class="px-4 py-2 border">Name</th>
+            <th class="px-4 py-2 border">Phone Number</th>
+            <th class="px-4 py-2 border">Email</th>
+            <th class="px-4 py-2 border">Location</th>
+            <th class="px-4 py-2 border">Date</th>
+            <th class="px-4 py-2 border">Booked On</th>
+            <th class="px-4 py-2 border">Slot</th>
+            <th class="px-4 py-2 border">Group Size</th>
+            <th class="px-4 py-2 border">Rafts</th>
+            <th class="px-4 py-2 border">Payment Status</th>
+            <th class="px-4 py-2 border">Advance</th>
+            <th class="px-4 py-2 border">Balance Amount</th>
+            <th class="px-4 py-2 border">Status</th>
+            <th class="px-4 py-2 border">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in bookings %}
+          {% set c_code = b.coupon_code or b.get('booking_details', {}).get('coupon_code') %}
+          {% set c_disc = b.coupon_discount_applied or b.get('booking_details', {}).get('coupon_discount_applied', 0) %}
+          {% set is_admin = b.is_admin_booking or b.get('booking_details', {}).get('is_admin_booking') %}
+          <tr class="text-center border-t {% if c_code %}bg-emerald-50/40{% endif %}">
+            <td class="border px-3 py-2 font-medium text-gray-600">{{ loop.index }}</td>
+            <td class="border px-4 py-2">
+              <div class="flex flex-col items-center justify-center gap-1">
+                <span>{{ b.user_name or b.name or "Unknown" }}</span>
+                {% if is_admin %}
+                <span
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300 shadow-sm"
+                  title="Created via Admin Booking form">
+                  🚣 Admin Booking
+                </span>
+                {% endif %}
+                {% if c_code %}
+                <span
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-sm"
+                  title="Discount: ₹{{ '%.2f'|format(c_disc|float) }} applied">
+                  🎟️ {{ c_code }}
+                </span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="border px-4 py-2" title="{{ b.phone }}">{{ b.phone | format_phone }}</td>
+            <td class="border px-4 py-2">{{ b.email or "-" }}</td>
+            <td class="border px-4 py-2">{{ b.location or b.get('booking_details', {}).get('location') or "-" }}</td>
+            <td class="border px-4 py-2">{{ b.date }}</td>
+            <td class="border px-4 py-2">{{ b.created_at_ist }}</td>
+            <td class="border px-4 py-2">{{ b.slot }}</td>
+            <td class="border px-4 py-2">{{ b.group_size }}</td>
+            <td class="border px-4 py-2">
+              {% if b.raft_allocations %}
+              🛶 {{ b.raft_allocations | join(', ') }}
+              {% else %}
+              -
+              {% endif %}
+            </td>
+            <td class="border px-4 py-2">
+              {% if b.status == 'Visited' or b.status == 'visited' %}
+              <span class="text-gray-400 text-sm">—</span>
+              {% else %}
+              {{ b.payment_status_display or 'Not paid' }}
+              {% endif %}
+            </td>
+            <td class="border px-4 py-2">
+              {% if b.status == 'Visited' or b.status == 'visited' %}
+              <span class="text-gray-400 text-sm">—</span>
+              {% else %}
+              <div>₹{{ "%.2f"|format((b.advance_amount or 0)|float) }}</div>
+              {% if c_disc and c_disc|float > 0 %}
+              <div class="text-xs text-emerald-700 font-semibold" title="Coupon discount applied">
+                (-₹{{ "%.2f"|format(c_disc|float) }} coupon)
+              </div>
+              {% endif %}
+              {% endif %}
+            </td>
+            <td class="border px-4 py-2">
+              {% if b.status == 'Visited' or b.status == 'visited' %}
+              <span class="text-gray-400 text-sm">—</span>
+              {% elif ((b.balance_amount or 0)|float) < 0 %} <span class="text-red-600 font-semibold">-₹{{
+                "%.2f"|format(-((b.balance_amount or 0)|float)) }}</span>
+                {% else %}
+                ₹{{ "%.2f"|format((b.balance_amount or 0)|float) }}
+                {% endif %}
+            </td>
+            <td class="border px-4 py-2">
+              {% if b.status == 'Cancelled' %}
+              <span class="text-red-500 font-semibold">Cancelled</span>
+              {% elif b.status == 'Visited' or b.status == 'visited' %}
+              <span class="text-purple-600 font-semibold">Visited</span>
+              {% elif 'Pending' in (b.status or '') %}
+              <span class="text-yellow-600 font-semibold">{{ b.status or 'Pending' }}</span>
+              {% else %}
+              <span class="text-green-600 font-semibold">{{ b.status or 'Unknown' }}</span>
+              {% endif %}
+            </td>
+            <td class="border px-4 py-2">
+              <div class="flex items-center space-x-2">
+                {% if b.status == 'Visited' or b.status == 'visited' %}
+                <span class="text-gray-400 text-sm">—</span>
+                {% elif (b.date or '') < (today_str or '' ) %} <span class="text-gray-400 text-sm"
+                  title="Booking date has passed">—</span>
+                  {% else %}
+                  {% if b.status != 'Pending' and 'Pending' not in (b.status or '') %}
+                  <button onclick="cancelBooking('{{ b._id }}')"
+                    class="bg-red-500 text-white px-2 py-1 rounded whitespace-nowrap">Cancel</button>
+                  {% endif %}
+                  {% if b.status == 'Confirmed' %}
+                  <button onclick="promptPostpone(event, '{{ b._id }}', '{{ b.date }}', '{{ b.slot }}')"
+                    class="bg-yellow-500 text-white px-2 py-1 rounded whitespace-nowrap">Postpone</button>
+                  {% set size_val = b.get('group_size', b.get('booking_details', {}).get('group_size', 0)) %}
+                  <button onclick="editGroupSize('{{ b._id }}', {{ size_val }})"
+                    class="bg-blue-500 text-white px-2 py-1 rounded whitespace-nowrap">Edit Size</button>
+                  {% endif %}
+                  {% if b.status == 'Pending' %}
+                  <button onclick="promptRebook(event, '{{ b._id }}')"
+                    class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded whitespace-nowrap">Rebook</button>
+                  {% endif %}
+                  {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if not is_subadmin and not bookings %}
+  <div class="text-center py-8 text-gray-500">
+    <p class="text-lg">No bookings found</p>
+    <p class="text-sm mt-2">
+      {% if selected_date %}
+      Try adjusting your date filter or
+      <button onclick="clearFilters()" class="text-blue-600 hover:underline">clear the filter</button> to see all
+      bookings.
+      {% else %}
+      There are no bookings in the system yet.
+      {% endif %}
+    </p>
+  </div>
+  {% endif %}
+</div>
+
+<div id="occupancy" class="bg-white shadow rounded-lg p-4 mt-6">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+    <h2 class="text-lg font-semibold">
+      Occupancy Overview
+    </h2>
+    <div class="flex items-center gap-2">
+      <button id="exportOccupancyPdfBtn" onclick="exportOccupancyOverviewToPDF()"
+        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 shadow-sm">
+        <span id="exportOccupancyPdfBtnIcon">📄</span>
+        <span id="exportOccupancyPdfBtnText">Export to PDF</span>
+      </button>
+      <button id="exportOccupancyExcelBtn" onclick="exportOccupancyOverviewToExcel()"
+        class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 shadow-sm"
+        title="Export occupancy overview and raft breakdown to Excel (.xlsx)">
+        <span id="exportOccupancyExcelBtnIcon">📊</span>
+        <span id="exportOccupancyExcelBtnText">Export to Excel</span>
+      </button>
+    </div>
+  </div>
+  <!-- Occupancy Overview: From / To date range (Admin and Sub-Admin) -->
+  <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between;" class="mb-3">
+    <div style="display:flex; align-items:center; gap:8px; min-width:200px;">
+      <label for="occupancyFrom" class="font-medium">From:</label>
+      <input type="date" id="occupancyFrom" class="border px-2 py-1 rounded" />
+    </div>
+    <div style="display:flex; align-items:center; gap:8px; min-width:200px;">
+      <label for="occupancyTo" class="font-medium">To:</label>
+      <input type="date" id="occupancyTo" class="border px-2 py-1 rounded" />
+    </div>
+    <div style="display:flex; gap:8px; align-items:center; flex-grow:1; justify-content:flex-end; min-width:220px;">
+      <button id="occupancyApply"
+        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm">Apply</button>
+      <button id="occupancyClear" class="bg-gray-200 text-gray-800 px-3 py-1 rounded">Clear</button>
+      <button id="refreshBtn"
+        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm">Refresh</button>
+      <span id="lastUpdated" class="text-sm text-gray-500 ml-4"></span>
+    </div>
+  </div>
+  <div id="occupancyDetail" class="grid gap-4"></div>
+  <div class="mt-3 text-sm text-gray-600">
+    <span class="inline-block w-4 h-4 bg-green-500 rounded mr-1 align-middle"></span> Available
+    <span class="inline-block w-4 h-4 bg-yellow-400 rounded ml-3 mr-1 align-middle"></span> Partial
+    <span class="inline-block w-4 h-4 bg-red-500 rounded ml-3 mr-1 align-middle"></span> Full
+  </div>
+</div>
+
+<script>
+  function applyOccupancyFilter() {
+    const from = document.getElementById('occupancyFrom')?.value;
+    const to = document.getElementById('occupancyTo')?.value;
+    if (from && to) {
+      const f = new Date(from);
+      const t = new Date(to);
+      if (f > t) {
+        alert('From Date cannot be greater than To Date');
+        return;
+      }
+    }
+    // Show loading indicator
+    let loadingSpan = document.getElementById('occupancyLoading');
+    const applyBtn = document.getElementById('occupancyApply');
+    if (!loadingSpan && applyBtn) {
+      loadingSpan = document.createElement('span');
+      loadingSpan.id = 'occupancyLoading';
+      loadingSpan.className = 'text-blue-600 ml-2';
+      loadingSpan.innerHTML = 'Loading...';
+      applyBtn.parentNode.appendChild(loadingSpan);
+    } else if (loadingSpan) {
+      loadingSpan.style.display = 'inline';
+    }
+    renderOccupancy(from || new Date().toISOString().slice(0, 10), to || new Date().toISOString().slice(0, 10));
+    setTimeout(() => {
+      if (loadingSpan) loadingSpan.style.display = 'none';
+    }, 1200);
+  }
+  const defaultCapacity = Number("{{ settings.get('capacity', 6) if settings else 6 }}");
+  const raftsPerSlot = Number("{{ settings.get('rafts_per_slot', 5) if settings else 5 }}");
+  const timeSlots = {{ (settings.get('time_slots', []) if settings else[]) | tojson }};
+
+  // Parse the start time of a slot into minutes since midnight for sorting.
+  function parseTimeSlotStart(slot) {
+    if (!slot || typeof slot !== 'string') return 0;
+    // handle various dash characters and common separators
+    const delimMatch = slot.match(/–|—|-|to/);
+    const delim = delimMatch ? delimMatch[0] : null;
+    const parts = delim ? slot.split(delim) : [slot];
+    const start = parts[0].trim();
+
+    // Match patterns like "7:00", "07:00", "7", "7 AM", "7:30 PM"
+    const m = start.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?/i);
+    if (!m) return 0;
+    let hh = parseInt(m[1], 10);
+    const mm = m[2] ? parseInt(m[2], 10) : 0;
+    const ampm = m[3];
+    if (ampm) {
+      if (/pm/i.test(ampm) && hh !== 12) hh += 12;
+      if (/am/i.test(ampm) && hh === 12) hh = 0;
+    }
+    return hh * 60 + mm;
+  }
+
+  async function fetchOccupancy(from, to) {
+    let url = '/admin/occupancy_detail';
+    const params = new URLSearchParams();
+    if (from) params.append('from', from);
+    if (to) params.append('to', to);
+    if (params.toString()) url += '?' + params.toString();
+    const res = await fetch(url);
+    if (!res.ok) {
+      try {
+        const err = await res.json();
+        console.error('Occupancy fetch failed', err);
+      } catch (e) {
+        console.error('Occupancy fetch failed', res.status);
+      }
+      return {};
+    }
+    return await res.json();
+  }
+
+  function raftColor(occupancy, cap) {
+    // Ensure occupancy is non-negative
+    const safeOccupancy = Math.max(0, occupancy || 0);
+    if (safeOccupancy >= cap) return 'bg-red-500';
+    if (safeOccupancy > 0 && safeOccupancy < cap) return 'bg-yellow-400';
+    return 'bg-green-500';
+  }
+
+  function makeRaftSquare(raft) {
+    const span = document.createElement('span');
+    // Ensure occupancy is non-negative
+    const safeOccupancy = Math.max(0, raft.occupancy || 0);
+    const raftCapacity = raft.capacity || 6;
+    let className = 'inline-block w-8 h-8 rounded mr-2 align-middle ' + raftColor(safeOccupancy, raftCapacity);
+
+    // Add special styling for preserved rafts
+    if (raft.is_preserved) {
+      className += ' border-4 border-purple-600 box-border';
+    }
+
+    span.className = className;
+    const preservedNote = raft.is_preserved ? ' 🛡️ (preserved)' : '';
+    span.title = `Raft ${raft.raft_id} - ${safeOccupancy}/${raftCapacity} people${preservedNote}`;
+    span.style.display = 'inline-block';
+    span.style.verticalAlign = 'middle';
+    span.style.cursor = 'default';
+    return span;
+  }
+
+  async function renderOccupancy(from, to) {
+    const data = await fetchOccupancy(from, to);
+    const container = document.getElementById('occupancyDetail');
+    container.innerHTML = '';
+
+    if (!data || Object.keys(data).length === 0) {
+      container.innerHTML = '<p class="text-gray-500 text-center py-4">No occupancy data available for the selected range.</p>';
+      const lastUpdatedEl = document.getElementById('lastUpdated');
+      if (lastUpdatedEl) lastUpdatedEl.textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+      return;
+    }
+
+    // Data is grouped by date -> slot -> raft_list
+    const dates = Object.keys(data).sort();
+    for (const dateStr of dates) {
+      const dateHeader = document.createElement('h3');
+      dateHeader.className = 'text-md font-semibold mt-2 mb-2';
+      dateHeader.textContent = dateStr;
+      container.appendChild(dateHeader);
+
+      // Determine slot order for this date
+      const slotsForDate = Object.keys(data[dateStr] || {});
+      const slotOrder = [];
+      for (const s of timeSlots) if (slotsForDate.includes(s)) slotOrder.push(s);
+      const others = slotsForDate.filter(s => !timeSlots.includes(s));
+      others.sort((a, b) => parseTimeSlotStart(a) - parseTimeSlotStart(b));
+      slotOrder.push(...others);
+
+      for (const slot of slotOrder) {
+        const rafts = data[dateStr][slot];
+        if (!Array.isArray(rafts) || rafts.length === 0) continue;
+
+        // Calculate slot-level aggregates
+        const bookedCount = rafts.reduce((acc, r) => acc + Math.max(0, r.occupancy || 0), 0);
+
+        // Count capacity: include all standard rafts + only preserved rafts with occupancy > 0
+        // This prevents empty preserved rafts from being counted
+        let effectiveRafts = 0;
+        for (let i = 0; i < rafts.length; i++) {
+          const r = rafts[i];
+          const occupancy = Math.max(0, r.occupancy || 0);
+          // Count raft if: (1) it's within rafts_per_slot OR (2) it's preserved AND has occupancy
+          if (i < raftsPerSlot || (r.is_preserved && occupancy > 0)) {
+            effectiveRafts++;
+          }
+        }
+
+        const totalCapacity = effectiveRafts * (rafts[0].capacity || defaultCapacity);
+        const available = Math.max(0, totalCapacity - bookedCount);
+        const percent = totalCapacity > 0 ? Math.round((bookedCount / totalCapacity) * 100) : 0;
+
+        // Debug: log the calculation
+        console.log(`[Occupancy] ${dateStr} ${slot}: effectiveRafts=${effectiveRafts}, booked=${bookedCount}, capacity=${totalCapacity}, percent=${percent}%`);
+
+        const slotCard = document.createElement('div');
+        slotCard.className = 'p-3 border rounded';
+        const header = document.createElement('div');
+        header.innerHTML = `<strong>${slot}</strong> — ${bookedCount}/${totalCapacity} booked — ${available} available — ${percent}%`;
+        slotCard.appendChild(header);
+
+        const raftRow = document.createElement('div');
+        raftRow.className = 'mt-2';
+
+        // Render raft squares: include standard rafts + only preserved rafts with occupancy > 0
+        for (let i = 0; i < rafts.length; i++) {
+          const r = rafts[i];
+          const occupancy = Math.max(0, r.occupancy || 0);
+          // Only show: (1) standard rafts (within raftsPerSlot) OR (2) preserved rafts with occupancy > 0
+          const isStandardRaft = i < raftsPerSlot;
+          const isPreservedWithOccupancy = r.is_preserved && occupancy > 0;
+
+          if (isStandardRaft || isPreservedWithOccupancy) {
+            const safeR = { ...r, occupancy: occupancy, capacity: r.capacity || defaultCapacity };
+            const sq = makeRaftSquare(safeR);
+            raftRow.appendChild(sq);
+          }
+        }
+        slotCard.appendChild(raftRow);
+
+        const details = document.createElement('div');
+        details.className = 'mt-2 text-sm text-gray-700';
+        // Also filter details: show standard rafts + preserved rafts with occupancy
+        details.innerHTML = rafts.map((r, i) => {
+          const occupancy = Math.max(0, r.occupancy || 0);
+          const isStandardRaft = i < raftsPerSlot;
+          const isPreservedWithOccupancy = r.is_preserved && occupancy > 0;
+
+          if (!isStandardRaft && !isPreservedWithOccupancy) {
+            return ''; // Skip empty preserved rafts and extra rafts
+          }
+          const specialTag = (r.is_special && occupancy > 0) ? ' (7-special)' : '';
+          const preservedTag = r.preserved_reason ? ` ${r.preserved_reason}` : '';
+          return `Raft ${r.raft_id}: ${occupancy}/${r.capacity}${specialTag}${preservedTag}`;
+        }).filter(line => line !== '').join('<br/>');
+        slotCard.appendChild(details);
+
+        container.appendChild(slotCard);
+      }
+    }
+
+    const lastUpdatedEl = document.getElementById('lastUpdated');
+    if (lastUpdatedEl) lastUpdatedEl.textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+
+    // Use time slot order from Settings (input order: 7, 10, 13, 15) — do not re-sort
+
+    const fromInp = document.getElementById('occupancyFrom');
+    const toInp = document.getElementById('occupancyTo');
+    if (fromInp && toInp) {
+      const today = new Date().toISOString().slice(0, 10);
+      // Default to today when both are empty
+      fromInp.value = today;
+      toInp.value = today;
+      renderOccupancy(fromInp.value, toInp.value);
+
+      // Refresh every 10 seconds for the current range
+      setInterval(() => {
+        const currentFrom = fromInp.value || today;
+        const currentTo = toInp.value || today;
+        renderOccupancy(currentFrom, currentTo);
+      }, 10000);
+
+      // Handle Apply button
+      const applyBtn = document.getElementById('occupancyApply');
+      if (applyBtn) {
+        applyBtn.addEventListener('click', applyOccupancyFilter);
+      }
+
+      // Handle Clear button
+      const clearBtn = document.getElementById('occupancyClear');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          fromInp.value = today;
+          toInp.value = today;
+          renderOccupancy(today, today);
+        });
+      }
+
+      // Handle refresh button
+      const refreshBtn = document.getElementById('refreshBtn');
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+          const container = document.getElementById('occupancyDetail');
+          if (container) container.innerHTML = '';
+          renderOccupancy(fromInp.value || today, toInp.value || today);
+        });
+      }
+    }
+
+    {% if not current_user.is_subadmin() %}
+    // Admin only: Date filter functionality for bookings
+    setupDateFilter();
+    {% endif %}
+  });
+
+  // Dynamic slot injection on dashboard for date-specific immediate slots
+  async function syncDashboardSlotsForDate(dateStr) {
+    if (!dateStr) return;
+    try {
+      const res = await fetch('/slot_availability?day=' + encodeURIComponent(dateStr) + '&_t=' + Date.now());
+      if (!res.ok) return;
+      const json = await res.json();
+      const slotSelect = document.getElementById('slotFilter') || document.getElementById('subadminSlotFilter');
+      if (!slotSelect || !json) return;
+      const existing = new Set(Array.from(slotSelect.options).map(o => o.value));
+      Object.keys(json).forEach(s => {
+        if (s && !existing.has(s)) {
+          const opt = document.createElement('option');
+          opt.value = s;
+          opt.textContent = s;
+          slotSelect.appendChild(opt);
+        }
+      });
+    } catch (e) { }
+  }
+
+  // Date Filter Functions
+  function setupDateFilter() {
+    const fromInp = document.getElementById('fromDate');
+    const toInp = document.getElementById('toDate');
+    if (fromInp) {
+      fromInp.addEventListener('change', () => syncDashboardSlotsForDate(fromInp.value));
+      if (fromInp.value) syncDashboardSlotsForDate(fromInp.value);
+    }
+    if (toInp) {
+      toInp.addEventListener('change', () => syncDashboardSlotsForDate(toInp.value));
+    }
+  }
+
+  // Sub-Admin Slot Filter Functions
+  function applySubadminFilters() {
+    const slot = document.getElementById('subadminSlotFilter')?.value || '';
+    const url = '/admin/dashboard' + (slot ? '?slot=' + encodeURIComponent(slot) : '');
+    window.location.href = url;
+  }
+
+  function clearSubadminFilters() {
+    window.location.href = '/admin/dashboard';
+  }
+
+  function refreshSubadminBookings() {
+    location.reload();
+  }
+  function applyFilters() {
+    const params = new URLSearchParams();
+    const from = document.getElementById('fromDate')?.value;
+    const to = document.getElementById('toDate')?.value;
+    const slot = document.getElementById('slotFilter')?.value;
+    const status = document.getElementById('statusFilter')?.value;
+
+    if (from) params.append('from', from);
+    if (to) params.append('to', to);
+    if (slot) params.append('slot', slot);
+    if (status) params.append('status', status);
+
+    if (from && to) {
+      const f = new Date(from);
+      const t = new Date(to);
+      if (f > t) {
+        alert('From Date cannot be greater than To Date');
+        return;
+      }
+    }
+
+    const url = '/admin/dashboard' + (params.toString() ? '?' + params.toString() : '');
+    window.location.href = url;
+  }
+
+  function clearFilters() {
+    const fromEl = document.getElementById('fromDate');
+    const toEl = document.getElementById('toDate');
+    const slotEl = document.getElementById('slotFilter');
+    const statusEl = document.getElementById('statusFilter');
+    if (fromEl) fromEl.value = '';
+    if (toEl) toEl.value = '';
+    if (slotEl) slotEl.value = '';
+    if (statusEl) statusEl.value = '';
+    window.location.href = '/admin/dashboard';
+  }
+
+  // Connect Date Filter with Slot Filter dynamically
+  async function syncSlotDropdownWithDates() {
+    const fromEl = document.getElementById('fromDate');
+    const toEl = document.getElementById('toDate');
+    const slotEl = document.getElementById('slotFilter');
+    if (!slotEl) return;
+
+    const fromVal = fromEl ? (fromEl.value || '').trim() : '';
+    const toVal = toEl ? (toEl.value || '').trim() : '';
+
+    try {
+      const params = new URLSearchParams();
+      if (fromVal) params.append('from', fromVal);
+      if (toVal) params.append('to', toVal);
+
+      const res = await fetch(`/admin/api/slots_for_date_range?${params.toString()}&_t=${Date.now()}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.success || !Array.isArray(data.slots)) return;
+
+      const currentVal = slotEl.value;
+      const slots = data.slots;
+
+      let html = '<option value="">All Slots</option>';
+      slots.forEach(s => {
+        const isSel = (s === currentVal) ? 'selected' : '';
+        html += `<option value="${s}" ${isSel}>${s}</option>`;
+      });
+
+      // If previous selection was a valid custom slot not in current list, retain it if user explicitly had it
+      if (currentVal && !slots.includes(currentVal)) {
+        html += `<option value="${currentVal}" selected>${currentVal}</option>`;
+      }
+
+      slotEl.innerHTML = html;
+    } catch (e) {
+      console.warn('Could not sync slot dropdown with dates:', e);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const fromInput = document.getElementById('fromDate');
+    const toInput = document.getElementById('toDate');
+    if (fromInput) fromInput.addEventListener('change', syncSlotDropdownWithDates);
+    if (toInput) toInput.addEventListener('change', syncSlotDropdownWithDates);
+  });
+</script>
+
+
+
+<script>
+  async function cancelBooking(id) {
+    {% if current_user.is_subadmin() %}
+    alert('Access denied. Sub-Admin cannot cancel bookings.');
+    return;
+    {% endif %}
+    if (!confirm("Are you sure you want to cancel this booking?")) return;
+    try {
+      const res = await fetch(`/admin/cancel_booking/${id}`, { method: "POST" });
+      const data = await res.json();
+      alert(data.message || data.error || "Cancelled");
+
+      // Refresh occupancy overview if it's displayed
+      const fromEl = document.getElementById('occupancyFrom');
+      const toEl = document.getElementById('occupancyTo');
+      if (fromEl && toEl) {
+        renderOccupancy(fromEl.value, toEl.value);
+      }
+
+      location.reload();
+    } catch (err) {
+      alert("Cancel failed: " + err.message);
+    }
+  }
+
+  async function editGroupSize(id, currentSize) {
+    {% if current_user.is_subadmin() %}
+    alert('Access denied. Sub-Admin cannot edit booking size.');
+    return;
+    {% endif %}
+    const input = prompt(`Current group size is ${currentSize}.\nEnter the number of people to reduce from this booking:`, "");
+    if (input === null || input.trim() === "") return;
+
+    const reduceBy = parseInt(input.trim());
+    if (isNaN(reduceBy) || reduceBy <= 0 || reduceBy >= currentSize) {
+      alert(`Invalid input. Please enter a number of people to reduce between 1 and ${currentSize - 1}.\nTo completely cancel the booking, please use the Cancel button.`);
+      return;
+    }
+
+    const newSize = currentSize - reduceBy;
+
+    try {
+      const res = await fetch(`/admin/reduce_group_size/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ new_size: newSize })
+      });
+      const data = await res.json();
+      if (res.ok && !data.error) {
+        alert(data.message || "Group size updated");
+        window.location.reload();
+      } else {
+        alert("Error: " + (data.error || "Failed to update group size"));
+      }
+    } catch (err) {
+      alert("Update failed: " + err.message);
+    }
+  }
+
+  function promptRebook(event, id) {
+    {% if current_user.is_subadmin() %}
+    showBookingError('Access denied. Sub-Admin cannot manually rebook.');
+    return;
+    {% endif %}
+    const row = (event && event.target) ? event.target.closest('tr') : null;
+    let currentRow = row;
+    if (!currentRow) {
+      currentRow = document.querySelector(`tr[data-booking-id="${id}"]`);
+    }
+    const currentDate = currentRow?.querySelector('td:nth-child(5)')?.textContent.trim() || '';
+    const currentSlot = currentRow?.querySelector('td:nth-child(7)')?.textContent.trim() || '';
+    showRebookModal(id, currentDate, currentSlot);
+  }
+
+  function showRebookModal(id, currentDate, currentSlot) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+      <h3 class="text-xl font-bold mb-2 text-gray-800">Rebook Booking</h3>
+      <p class="text-xs text-gray-500 mb-4">Select date and time slot to check vacancy and confirm rebooking.</p>
+      <div class="mb-4">
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Target Date:</label>
+        <input type="date" id="rebookDate" class="w-full border border-gray-300 px-3 py-2 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" min="${new Date().toISOString().split('T')[0]}" required />
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Target Time Slot:</label>
+        <select id="rebookSlot" class="w-full border border-gray-300 px-3 py-2 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" required>
+          <option value="">Select a slot</option>
+          ${(timeSlots || []).map(slot =>
+      `<option value="${slot}" ${slot === currentSlot ? 'selected' : ''}>${slot}</option>`
+    ).join('')}
+        </select>
+      </div>
+      <div class="flex gap-3 justify-end pt-2">
+        <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded text-sm font-medium">Cancel</button>
+        <button onclick="submitRebook('${id}')" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-sm font-semibold shadow">Rebook & Confirm</button>
+      </div>
+    </div>
+  `;
+    document.body.appendChild(modal);
+    const dateInput = modal.querySelector('#rebookDate');
+    if (currentDate) {
+      dateInput.value = currentDate;
+    }
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+  }
+
+  async function submitRebook(id) {
+    const modal = document.querySelector('.fixed.bg-black');
+    const rebookDate = document.getElementById('rebookDate').value;
+    const rebookSlot = document.getElementById('rebookSlot').value;
+
+    if (!rebookDate || !rebookSlot) {
+      showToast('Please select both date and time slot', 'error');
+      return;
+    }
+
+    try {
+      const res = await fetch(`/admin/rebook_pending/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ new_date: rebookDate, new_slot: rebookSlot })
+      });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        showToast(data.error || 'Failed to rebook.', 'error');
+        return;
+      }
+
+      if (modal) modal.remove();
+      showToast(data.message || 'Booking rebooked and confirmed successfully!', 'success');
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err) {
+      showToast("Rebook failed: " + err.message, 'error');
+    }
+  }
+
+  function showBookingError(message) {
+    // Remove any existing error banners
+    const existing = document.getElementById('booking-error-banner');
+    if (existing) existing.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'booking-error-banner';
+    banner.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;max-width:600px;width:90%;';
+    banner.innerHTML = `
+      <div style="background:#fefce8;border:1px solid #facc15;border-left:4px solid #eab308;border-radius:8px;padding:16px 20px;display:flex;align-items:flex-start;gap:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+        <span style="font-size:20px;flex-shrink:0;">⚠️</span>
+        <div style="flex:1;">
+          <p style="margin:0;font-weight:600;color:#92400e;font-size:14px;">Booking Error</p>
+          <p style="margin:4px 0 0;color:#78350f;font-size:13px;">${message}</p>
+        </div>
+        <button onclick="document.getElementById('booking-error-banner').remove()" style="background:none;border:none;cursor:pointer;color:#92400e;font-size:18px;padding:0;line-height:1;">✕</button>
+      </div>
+    `;
+    document.body.appendChild(banner);
+    // Auto-dismiss after 6 seconds
+    setTimeout(() => { if (banner.parentNode) banner.remove(); }, 6000);
+  }
+
+  function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+      }`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+      toast.style.transition = 'opacity 0.3s';
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  function showPostponeModal(id, currentDate, currentSlot) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+      <h3 class="text-xl font-bold mb-4">Postpone Booking</h3>
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-2">New Date:</label>
+        <input type="date" id="postponeDate" class="w-full border px-3 py-2 rounded" min="${new Date().toISOString().split('T')[0]}" required />
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-2">New Time Slot:</label>
+        <select id="postponeSlot" class="w-full border px-3 py-2 rounded" required>
+          <option value="">Select a slot</option>
+        </select>
+      </div>
+      <div class="flex gap-3 justify-end">
+        <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
+        <button onclick="submitPostpone('${id}')" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">Postpone</button>
+      </div>
+    </div>
+  `;
+    document.body.appendChild(modal);
+    const dateInput = modal.querySelector('#postponeDate');
+    const slotSelect = modal.querySelector('#postponeSlot');
+
+    const initialDate = currentDate || new Date().toISOString().split('T')[0];
+    dateInput.value = initialDate;
+
+    async function loadSlotsForDate(selectedDate, defaultSlot) {
+      if (!selectedDate) {
+        slotSelect.innerHTML = '<option value="">Select a slot</option>';
+        return;
+      }
+      try {
+        const res = await fetch(`/admin/api/slots_for_date_range?from=${encodeURIComponent(selectedDate)}&to=${encodeURIComponent(selectedDate)}&_t=${Date.now()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.success || !Array.isArray(data.slots)) return;
+
+        let html = '<option value="">Select a slot</option>';
+        data.slots.forEach(slot => {
+          const isSelected = (defaultSlot && slot === defaultSlot) ? 'selected' : '';
+          html += `<option value="${slot}" ${isSelected}>${slot}</option>`;
+        });
+        slotSelect.innerHTML = html;
+      } catch (err) {
+        console.error('Failed to load slots for date:', err);
+      }
+    }
+
+    // Close on outside click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.remove();
+    });
+
+    // Update slots when date changes
+    dateInput.addEventListener('change', function () {
+      if (dateInput.value) {
+        loadSlotsForDate(dateInput.value, '');
+      }
+    });
+
+    // Initial load of slots for selected date
+    loadSlotsForDate(initialDate, currentSlot);
+  }
+
+  async function submitPostpone(id) {
+    const modal = document.querySelector('.fixed.bg-black');
+    const newDate = document.getElementById('postponeDate').value;
+    const newSlot = document.getElementById('postponeSlot').value;
+
+    if (!newDate || !newSlot) {
+      showToast('Please fill in both date and slot', 'error');
+      return;
+    }
+
+    // Validate date is not in the past
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (newDate < todayStr) {
+      showToast('Please select a future date', 'error');
+      return;
+    }
+
+    try {
+      const res = await fetch(`/admin/postpone_booking/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ new_date: newDate, new_slot: newSlot })
+      });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        showToast(data.error || 'Failed to postpone booking', 'error');
+        return;
+      }
+
+      modal.remove();
+      showToast(data.message || 'Booking postponed successfully', 'success');
+
+      // Refresh occupancy overview for both old and new dates
+      const fromEl = document.getElementById('occupancyFrom');
+      const toEl = document.getElementById('occupancyTo');
+      const today = new Date().toISOString().slice(0, 10);
+      const currentFrom = (fromEl && fromEl.value) ? fromEl.value : today;
+      const currentTo = (toEl && toEl.value) ? toEl.value : today;
+      renderOccupancy(currentFrom, currentTo);
+
+      // Also refresh single-day view for newDate briefly so admin sees update
+      if (newDate && (newDate < currentFrom || newDate > currentTo)) {
+        setTimeout(() => {
+          if (fromEl && toEl) {
+            fromEl.value = newDate;
+            toEl.value = newDate;
+          }
+          renderOccupancy(newDate, newDate);
+        }, 500);
+      }
+
+      // Reload the page after a short delay to show updated booking list
+      setTimeout(() => {
+        location.reload();
+      }, 1500);
+    } catch (err) {
+      showToast("Postpone failed: " + err.message, 'error');
+    }
+  }
+
+  function promptPostpone(event, id, bookingDate, bookingSlot) {
+    {% if current_user.is_subadmin() %}
+    alert('Access denied. Sub-Admin cannot postpone bookings.');
+    return;
+    {% endif %}
+    let currentDate = bookingDate || '';
+    let currentSlot = bookingSlot || '';
+    if (!currentDate || !currentSlot) {
+      const row = (event && event.target) ? event.target.closest('tr') : null;
+      let currentRow = row;
+      if (!currentRow) {
+        currentRow = document.querySelector(`tr[data-booking-id="${id}"]`);
+      }
+      if (currentRow) {
+        if (!currentDate) {
+          currentDate = currentRow.querySelector('td:nth-child(6)')?.textContent.trim() || '';
+        }
+        if (!currentSlot) {
+          currentSlot = currentRow.querySelector('td:nth-child(8)')?.textContent.trim() || '';
+        }
+      }
+    }
+    showPostponeModal(id, currentDate, currentSlot);
+  }
+
+  // Listen for settings updates from other tabs/windows
+  window.addEventListener('storage', function (e) {
+    if (e.key === 'settings_updated') {
+      // Reload page to get fresh settings (capacity, time slots, etc.)
+      console.log('Settings updated - refreshing dashboard...');
+      window.location.reload();
+    }
+    if (e.key === 'bookings_deleted') {
+      // Refresh occupancy overview when bookings are deleted
+      try {
+        const deletedInfo = JSON.parse(e.newValue || '{}');
+        const deletedDate = deletedInfo.date;
+        const fromEl = document.getElementById('occupancyFrom');
+        const toEl = document.getElementById('occupancyTo');
+        const today = new Date().toISOString().slice(0, 10);
+
+        const currentFrom = (fromEl && fromEl.value) ? fromEl.value : today;
+        const currentTo = (toEl && toEl.value) ? toEl.value : today;
+
+        // Clear and re-fetch occupancy data container
+        const container = document.getElementById('occupancyDetail');
+        if (container) container.innerHTML = '';
+
+        if (deletedDate) {
+          // If deletedDate falls in current range, refresh
+          if (deletedDate >= currentFrom && deletedDate <= currentTo) {
+            renderOccupancy(currentFrom, currentTo);
+          }
+        } else {
+          // No specific date provided, refresh current view
+          renderOccupancy(currentFrom, currentTo);
+        }
+      } catch (err) {
+        const fromEl = document.getElementById('occupancyFrom');
+        const toEl = document.getElementById('occupancyTo');
+        const today = new Date().toISOString().slice(0, 10);
+        const currentFrom = (fromEl && fromEl.value) ? fromEl.value : today;
+        const currentTo = (toEl && toEl.value) ? toEl.value : today;
+        const container = document.getElementById('occupancyDetail');
+        if (container) container.innerHTML = '';
+        renderOccupancy(currentFrom, currentTo);
+      }
+    }
+  });
+
+  // PDF Export Functions
+  let isPdfGenerating = false;
+  let pdfAnimationInterval = null;
+
+  async function exportAllBookingsToPDF() {
+    if (isPdfGenerating) return;
+
+    const btn = document.getElementById('exportPdfBtn');
+    const btnText = document.getElementById('exportPdfBtnText');
+    const btnIcon = document.getElementById('exportPdfBtnIcon');
+    if (!btn || !btnText) return;
+
+    isPdfGenerating = true;
+    btn.disabled = true;
+
+    // Apply grey/disabled styling
+    btn.classList.remove('bg-blue-600', 'hover:bg-blue-700', 'bg-green-600', 'hover:bg-green-700');
+    btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+    if (btnIcon) btnIcon.style.display = 'none';
+
+    // Animated sequence: Generating. -> Generating.. -> Generating... -> Generating. -> ...
+    const frames = ['Generating.', 'Generating..', 'Generating...'];
+    let frameIdx = 0;
+    btnText.textContent = frames[0];
+
+    pdfAnimationInterval = setInterval(() => {
+      frameIdx = (frameIdx + 1) % frames.length;
+      btnText.textContent = frames[frameIdx];
+    }, 400);
+
+    try {
+      // Yield to allow browser UI to update button state
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      const from = document.getElementById('fromDate')?.value || '';
+      const to = document.getElementById('toDate')?.value || '';
+      const slot = document.getElementById('slotFilter')?.value || '';
+      const status = document.getElementById('statusFilter')?.value || '';
+
+      const queryParams = new URLSearchParams({
+        from: from,
+        to: to,
+        slot: slot,
+        status: status
+      });
+
+      const response = await fetch(`/admin/api/export_bookings?${queryParams.toString()}`);
+      if (!response.ok) {
+        throw new Error(`Server returned status ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (!result.success || !Array.isArray(result.bookings)) {
+        throw new Error(result.error || 'Failed to retrieve booking data for export.');
+      }
+
+      const bookingsData = result.bookings;
+
+      // Yield before PDF layout to keep UI responsive
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Build PDF using jsPDF
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+      // Title
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('All Bookings Report', 14, 14);
+
+      // Date and time
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      const now = new Date();
+      doc.text(`Generated: ${now.toLocaleString()}`, 14, 20);
+
+      // Filter info if applicable
+      let filterInfo = [];
+      if (from || to) {
+        filterInfo.push(`Date: ${from || ''}${from && to ? ' to ' + to : ''}`);
+      }
+      if (slot) filterInfo.push(`Slot: ${slot}`);
+      if (status) filterInfo.push(`Status: ${status}`);
+      if (filterInfo.length) {
+        doc.text(`Filtered by: ${filterInfo.join(' | ')}`, 14, 25);
+      }
+
+      // Table columns for export
+      const tableColumn = [
+        'Sl No',
+        'Name',
+        'Phone',
+        'Email',
+        'Location',
+        'Date',
+        'Slot',
+        'Group Size',
+        'Payment',
+        'Coupon',
+        'Advance (₹)',
+        'Balance (₹)',
+        'Status'
+      ];
+
+      const tableRows = bookingsData.map((b, idx) => [
+        (idx + 1).toString(),
+        b.name || 'Unknown',
+        b.phone || '-',
+        b.email || '-',
+        b.location || '-',
+        b.date || '-',
+        b.slot || '-',
+        b.group_size || '-',
+        b.payment_status || 'Not paid',
+        b.coupon_code ? b.coupon_code : '-',
+        (b.status && b.status.toLowerCase() === 'visited') ? '—' : (b.coupon_discount && parseFloat(b.coupon_discount) > 0 ? `${b.advance} (-₹${b.coupon_discount})` : (b.advance || '0.00')),
+        (b.status && b.status.toLowerCase() === 'visited') ? '—' : (b.balance || '0.00'),
+        b.status || '-'
+      ]);
+
+      if (tableRows.length === 0) {
+        doc.text('No bookings found', 14, 35);
+      } else {
+        doc.autoTable({
+          head: [tableColumn],
+          body: tableRows,
+          startY: filterInfo.length ? 28 : 23,
+          styles: {
+            fontSize: 8,
+            cellPadding: 2,
+            valign: 'middle',
+            overflow: 'linebreak'
+          },
+          headStyles: {
+            fillColor: [13, 148, 136], // Teal #0d9488
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            halign: 'center',
+            valign: 'middle'
+          },
+          bodyStyles: {
+            fontSize: 8
+          },
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 12 }, // Sl No
+            1: { halign: 'left', cellWidth: 26 },   // Name
+            2: { halign: 'center', cellWidth: 24 }, // Phone
+            3: { halign: 'left', cellWidth: 34 },   // Email
+            4: { halign: 'left', cellWidth: 24 },   // Location
+            5: { halign: 'center', cellWidth: 18 }, // Date
+            6: { halign: 'center', cellWidth: 16 }, // Slot
+            7: { halign: 'center', cellWidth: 16 }, // Group Size
+            8: { halign: 'center', cellWidth: 16 }, // Payment Status
+            9: { halign: 'center', cellWidth: 20 }, // Coupon Code
+            10: { halign: 'right', cellWidth: 22 },  // Advance
+            11: { halign: 'right', cellWidth: 18 }, // Balance
+            12: { halign: 'center', cellWidth: 16 } // Status
+          },
+          alternateRowStyles: { fillColor: [245, 248, 250] },
+          margin: { left: 14, right: 14, top: 28 }
+        });
+      }
+
+      // Footer - page numbering across ALL pages
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.text(
+          `Page ${i} of ${pageCount} - Cherupuzha River Rafting Booking System`,
+          doc.internal.pageSize.getWidth() / 2,
+          doc.internal.pageSize.getHeight() - 8,
+          { align: 'center' }
+        );
+      }
+
+      // Yield before saving
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Save PDF
+      const filename = (from || to || slot || status)
+        ? `All_Bookings_${(from || '')}${to ? '_to_' + to : ''}_${now.toISOString().slice(0, 10)}.pdf`
+        : `All_Bookings_${now.toISOString().slice(0, 10)}.pdf`;
+      doc.save(filename);
+
+      // Stop animation and update button text to "Generated"
+      clearInterval(pdfAnimationInterval);
+      pdfAnimationInterval = null;
+
+      btnText.textContent = 'Generated';
+      btn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+      btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+      btn.disabled = false;
+      if (btnIcon) btnIcon.style.display = 'inline';
+      isPdfGenerating = false;
+
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      if (pdfAnimationInterval) {
+        clearInterval(pdfAnimationInterval);
+        pdfAnimationInterval = null;
+      }
+
+      // Reset button state on error
+      btnText.textContent = 'Export to PDF';
+      btn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+      btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+      btn.disabled = false;
+      if (btnIcon) btnIcon.style.display = 'inline';
+      isPdfGenerating = false;
+
+      alert(`Error generating PDF: ${err.message || err}`);
+    }
+  }
+
+  // Excel Export Functions (All Bookings)
+  let isExcelGenerating = false;
+  let excelAnimationInterval = null;
+
+  async function exportAllBookingsToExcel() {
+    if (isExcelGenerating) return;
+
+    if (typeof XLSX === 'undefined') {
+      alert('Excel export library is loading or unavailable. Please check your network connection.');
+      return;
+    }
+
+    const btn = document.getElementById('exportExcelBtn');
+    const btnText = document.getElementById('exportExcelBtnText');
+    const btnIcon = document.getElementById('exportExcelBtnIcon');
+    if (!btn || !btnText) return;
+
+    isExcelGenerating = true;
+    btn.disabled = true;
+
+    // Apply grey/disabled styling
+    btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+    btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+    if (btnIcon) btnIcon.style.display = 'none';
+
+    // Animated sequence: Generating. -> Generating.. -> Generating...
+    const frames = ['Generating.', 'Generating..', 'Generating...'];
+    let frameIdx = 0;
+    btnText.textContent = frames[0];
+
+    excelAnimationInterval = setInterval(() => {
+      frameIdx = (frameIdx + 1) % frames.length;
+      btnText.textContent = frames[frameIdx];
+    }, 400);
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      const from = document.getElementById('fromDate')?.value || '';
+      const to = document.getElementById('toDate')?.value || '';
+      const slot = document.getElementById('slotFilter')?.value || '';
+      const status = document.getElementById('statusFilter')?.value || '';
+
+      const queryParams = new URLSearchParams({
+        from: from,
+        to: to,
+        slot: slot,
+        status: status
+      });
+
+      const response = await fetch(`/admin/api/export_bookings?${queryParams.toString()}`);
+      if (!response.ok) {
+        throw new Error(`Server returned status ${response.status}`);
+      }
+
+      const result = await response.json();
+      if (!result.success || !Array.isArray(result.bookings)) {
+        throw new Error(result.error || 'Failed to retrieve booking data for export.');
+      }
+
+      const bookingsData = result.bookings;
+      const now = new Date();
+
+      // Build worksheet data
+      const sheetData = [];
+
+      // Title & metadata block
+      sheetData.push(['Cherupuzha River Rafting - All Bookings Report']);
+      sheetData.push([`Generated: ${now.toLocaleString()}`]);
+
+      const filtersApplied = [];
+      if (from || to) filtersApplied.push(`Date: ${from || ''}${from && to ? ' to ' + to : ''}`);
+      if (slot) filtersApplied.push(`Slot: ${slot}`);
+      if (status) filtersApplied.push(`Status: ${status}`);
+      sheetData.push([filtersApplied.length ? `Filters: ${filtersApplied.join(' | ')}` : 'Filters: All bookings']);
+      sheetData.push([]); // Empty row separator
+
+      // Table Headers
+      const headers = [
+        'Sl No',
+        'Customer Name',
+        'Phone Number',
+        'Email Address',
+        'Location',
+        'Booking Date',
+        'Time Slot',
+        'Group Size',
+        'Payment Status',
+        'Coupon Code',
+        'Coupon Discount (₹)',
+        'Advance Paid (₹)',
+        'Balance Due (₹)',
+        'Booking Status',
+        'Booking Source'
+      ];
+      sheetData.push(headers);
+
+      let totalGroupSize = 0;
+      let totalAdvance = 0;
+      let totalBalance = 0;
+      let totalDiscount = 0;
+
+      if (bookingsData.length === 0) {
+        sheetData.push(['No bookings found for the selected criteria.']);
+      } else {
+        bookingsData.forEach((b, idx) => {
+          const isVisited = b.status && b.status.toLowerCase() === 'visited';
+          const gs = parseInt(b.group_size) || 0;
+          totalGroupSize += gs;
+
+          let advVal = 0;
+          let balVal = 0;
+          if (!isVisited) {
+            advVal = parseFloat(b.advance) || 0;
+            balVal = parseFloat(b.balance) || 0;
+            totalAdvance += advVal;
+            totalBalance += balVal;
+          }
+          const discVal = parseFloat(b.coupon_discount) || 0;
+          totalDiscount += discVal;
+
+          sheetData.push([
+            idx + 1,
+            b.name || 'Unknown',
+            b.phone || '-',
+            b.email || '-',
+            b.location || '-',
+            b.date || '-',
+            b.slot || '-',
+            gs,
+            b.payment_status || 'Not paid',
+            b.coupon_code || '-',
+            discVal,
+            isVisited ? '—' : advVal,
+            isVisited ? '—' : balVal,
+            b.status || '-',
+            b.is_admin_booking ? 'Admin Booking' : 'Online Booking'
+          ]);
+        });
+
+        // Summary row
+        sheetData.push([
+          'TOTAL',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          totalGroupSize,
+          '',
+          '',
+          totalDiscount,
+          totalAdvance,
+          totalBalance,
+          `${bookingsData.length} Bookings`,
+          ''
+        ]);
+      }
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+      // Auto-fit column widths
+      const colWidths = headers.map((h, colIdx) => {
+        let maxLen = h.length;
+        for (let r = 4; r < sheetData.length; r++) {
+          const row = sheetData[r];
+          if (row && row[colIdx] != null) {
+            const str = String(row[colIdx]);
+            if (str.length > maxLen) maxLen = str.length;
+          }
+        }
+        return { wch: Math.min(Math.max(maxLen + 3, 10), 40) };
+      });
+      ws['!cols'] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, 'All Bookings');
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      const filename = (from || to || slot || status)
+        ? `All_Bookings_${(from || '')}${to ? '_to_' + to : ''}_${now.toISOString().slice(0, 10)}.xlsx`
+        : `All_Bookings_${now.toISOString().slice(0, 10)}.xlsx`;
+
+      XLSX.writeFile(wb, filename);
+
+      clearInterval(excelAnimationInterval);
+      excelAnimationInterval = null;
+
+      btnText.textContent = 'Generated';
+      btn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+      btn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
+      btn.disabled = false;
+      if (btnIcon) btnIcon.style.display = 'inline';
+      isExcelGenerating = false;
+
+    } catch (err) {
+      console.error('Excel generation error:', err);
+      if (excelAnimationInterval) {
+        clearInterval(excelAnimationInterval);
+        excelAnimationInterval = null;
+      }
+
+      btnText.textContent = 'Export to Excel';
+      btn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+      btn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
+      btn.disabled = false;
+      if (btnIcon) btnIcon.style.display = 'inline';
+      isExcelGenerating = false;
+
+      alert(`Error generating Excel: ${err.message || err}`);
+    }
+  }
+
+  // Reset Export buttons state if filters are changed
+  document.addEventListener('DOMContentLoaded', () => {
+    const filterInputs = ['fromDate', 'toDate', 'slotFilter', 'statusFilter'];
+    filterInputs.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('change', () => {
+          const pdfBtnText = document.getElementById('exportPdfBtnText');
+          if (pdfBtnText && pdfBtnText.textContent === 'Generated') {
+            pdfBtnText.textContent = 'Export to PDF';
+          }
+          const excelBtnText = document.getElementById('exportExcelBtnText');
+          if (excelBtnText && excelBtnText.textContent === 'Generated') {
+            excelBtnText.textContent = 'Export to Excel';
+          }
+        });
+      }
+    });
+
+    const occInputs = ['occupancyFrom', 'occupancyTo'];
+    occInputs.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('change', () => {
+          const occPdfText = document.getElementById('exportOccupancyPdfBtnText');
+          if (occPdfText && occPdfText.textContent === 'Generated') {
+            occPdfText.textContent = 'Export to PDF';
+          }
+          const occExcelText = document.getElementById('exportOccupancyExcelBtnText');
+          if (occExcelText && occExcelText.textContent === 'Generated') {
+            occExcelText.textContent = 'Export to Excel';
+          }
+        });
+      }
+    });
+
+    const occApplyBtn = document.getElementById('occupancyApply');
+    if (occApplyBtn) {
+      occApplyBtn.addEventListener('click', () => {
+        const occPdfText = document.getElementById('exportOccupancyPdfBtnText');
+        if (occPdfText && occPdfText.textContent === 'Generated') occPdfText.textContent = 'Export to PDF';
+        const occExcelText = document.getElementById('exportOccupancyExcelBtnText');
+        if (occExcelText && occExcelText.textContent === 'Generated') occExcelText.textContent = 'Export to Excel';
+      });
+    }
+
+    const occClearBtn = document.getElementById('occupancyClear');
+    if (occClearBtn) {
+      occClearBtn.addEventListener('click', () => {
+        const occPdfText = document.getElementById('exportOccupancyPdfBtnText');
+        if (occPdfText && occPdfText.textContent === 'Generated') occPdfText.textContent = 'Export to PDF';
+        const occExcelText = document.getElementById('exportOccupancyExcelBtnText');
+        if (occExcelText && occExcelText.textContent === 'Generated') occExcelText.textContent = 'Export to Excel';
+      });
+    }
+  });
+
+  // Occupancy PDF Export
+  let isOccupancyPdfGenerating = false;
+  let occupancyPdfAnimationInterval = null;
+
+  async function exportOccupancyOverviewToPDF() {
+    if (isOccupancyPdfGenerating) return;
+
+    const btn = document.getElementById('exportOccupancyPdfBtn');
+    const btnText = document.getElementById('exportOccupancyPdfBtnText');
+    const btnIcon = document.getElementById('exportOccupancyPdfBtnIcon');
+
+    if (btn && btnText) {
+      isOccupancyPdfGenerating = true;
+      btn.disabled = true;
+      btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+      btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+      if (btnIcon) btnIcon.style.display = 'none';
+
+      const frames = ['Generating.', 'Generating..', 'Generating...'];
+      let frameIdx = 0;
+      btnText.textContent = frames[0];
+      occupancyPdfAnimationInterval = setInterval(() => {
+        frameIdx = (frameIdx + 1) % frames.length;
+        btnText.textContent = frames[frameIdx];
+      }, 400);
+    }
+
+    try {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      // Get current from/to from occupancy pickers
+      const from = document.getElementById('occupancyFrom')?.value || new Date().toISOString().slice(0, 10);
+      const to = document.getElementById('occupancyTo')?.value || from;
+
+      // Fetch occupancy data for the range
+      const occupancyData = await fetchOccupancy(from, to);
+
+      // Title
+      doc.setFontSize(18);
+      doc.text('Occupancy Overview Report', 14, 15);
+
+      // Date and time
+      doc.setFontSize(10);
+      const now = new Date();
+      doc.text(`Generated: ${now.toLocaleString()}`, 14, 22);
+      doc.text(`Report Range: ${from} to ${to}`, 14, 27);
+
+      // Process occupancy data
+      const tableRows = [];
+      let totalRafts = 0;
+      let totalOccupancy = 0;
+      let totalCapacity = 0;
+
+      if (occupancyData && Object.keys(occupancyData).length > 0) {
+        // occupancyData is grouped by date -> slot -> rafts
+        for (const [dateStr, slots] of Object.entries(occupancyData)) {
+          // Determine slot order: prefer configured `timeSlots`, then sort remaining by parsed start time
+          const slotsKeys = Object.keys(slots || {});
+          const slotOrder = [];
+          for (const s of timeSlots) if (slotsKeys.includes(s)) slotOrder.push(s);
+          const others = slotsKeys.filter(s => !timeSlots.includes(s));
+          others.sort((a, b) => parseTimeSlotStart(a) - parseTimeSlotStart(b));
+          slotOrder.push(...others);
+
+          for (const slot of slotOrder) {
+            const rafts = slots[slot];
+            if (!Array.isArray(rafts) || rafts.length === 0) continue;
+
+            const slotRafts = rafts.filter((r, i) => {
+              const occ = Math.max(0, r.occupancy || 0);
+              return i < raftsPerSlot || (r.is_preserved && occ > 0);
+            }).length;
+
+            const slotOccupancy = rafts.reduce((sum, r) => sum + Math.max(0, r.occupancy || 0), 0);
+
+            const slotCapacity = rafts
+              .filter((r, i) => {
+                const occ = Math.max(0, r.occupancy || 0);
+                return i < raftsPerSlot || (r.is_preserved && occ > 0);
+              })
+              .reduce((sum, r) => sum + (r.capacity || defaultCapacity), 0);
+
+            const occupancyPercent = slotCapacity > 0 ? ((slotOccupancy / slotCapacity) * 100).toFixed(0) : 0;
+
+            tableRows.push([
+              dateStr,
+              slot,
+              slotRafts.toString(),
+              slotOccupancy.toString(),
+              (slotCapacity - slotOccupancy).toString(),
+              `${occupancyPercent}%`
+            ]);
+
+            totalRafts += slotRafts;
+            totalOccupancy += slotOccupancy;
+            totalCapacity += slotCapacity;
+          }
+        }
+
+        // Add summary row (fix column alignment)
+        const totalOccupancyPercent = totalCapacity > 0 ? ((totalOccupancy / totalCapacity) * 100).toFixed(0) : 0;
+        tableRows.push([
+          'TOTAL',
+          '', // Time Slot column empty
+          totalRafts.toString(),
+          totalOccupancy.toString(),
+          (totalCapacity - totalOccupancy).toString(),
+          `${totalOccupancyPercent}%`
+        ]);
+      }
+
+      if (tableRows.length === 0) {
+        doc.text('No occupancy data available for this date', 14, 35);
+      } else {
+        // Table columns
+        const tableColumn = ['Date', 'Time Slot', 'Total Rafts', 'Occupied', 'Available', 'Occupancy %'];
+
+        // Add table
+        doc.autoTable({
+          head: [tableColumn],
+          body: tableRows,
+          startY: 32,
+          styles: { fontSize: 9, cellPadding: 2, valign: 'middle' },
+          headStyles: { fillColor: [13, 148, 136], textColor: [255, 255, 255], fontStyle: 'bold', halign: 'center' },
+          alternateRowStyles: { fillColor: [245, 248, 250] },
+          margin: { top: 32 },
+          didDrawPage: function (data) {
+            // Highlight total row
+            if (data.pageNumber === data.pageCount) {
+              const lastRow = data.table.body[data.table.body.length - 1];
+              if (lastRow && lastRow[0] && lastRow[0].text === 'TOTAL') {
+                doc.setFillColor(220, 220, 220);
+                doc.rect(data.table.startX, lastRow.y, data.table.width, lastRow.height, 'F');
+              }
+            }
+          }
+        });
+
+        // Add detailed raft information
+        let yPos = doc.lastAutoTable.finalY + 10;
+        if (yPos > doc.internal.pageSize.getHeight() - 30) {
+          doc.addPage();
+          yPos = 20;
+        }
+
+        doc.setFontSize(12);
+        doc.text('Detailed Raft Information', 14, yPos);
+        yPos += 8;
+
+        doc.setFontSize(9);
+        // Detailed info grouped by date then slot (slot order matches summary)
+        for (const [dateStr, slots] of Object.entries(occupancyData)) {
+          const slotsKeys = Object.keys(slots || {});
+          const slotOrder = [];
+          for (const s of timeSlots) if (slotsKeys.includes(s)) slotOrder.push(s);
+          const others = slotsKeys.filter(s => !timeSlots.includes(s));
+          others.sort((a, b) => parseTimeSlotStart(a) - parseTimeSlotStart(b));
+          slotOrder.push(...others);
+
+          for (const slot of slotOrder) {
+            const rafts = slots[slot];
+            if (!Array.isArray(rafts) || rafts.length === 0) continue;
+            if (yPos > doc.internal.pageSize.getHeight() - 40) {
+              doc.addPage();
+              yPos = 20;
+            }
+            doc.setFontSize(10);
+            doc.text(`${dateStr} — ${slot}:`, 14, yPos);
+            yPos += 6;
+            doc.setFontSize(8);
+            rafts.forEach((raft, i) => {
+              const occ = Math.max(0, raft.occupancy || 0);
+              const isStandardRaft = i < raftsPerSlot;
+              const isPreservedWithOccupancy = raft.is_preserved && occ > 0;
+
+              // EXACT SAME FILTER AS UI: Skip empty preserved rafts and extra rafts
+              if (!isStandardRaft && !isPreservedWithOccupancy) return;
+
+              if (yPos > doc.internal.pageSize.getHeight() - 20) {
+                doc.addPage();
+                yPos = 20;
+              }
+              const cap = raft.capacity || defaultCapacity;
+              const status = occ >= cap ? 'Full' : occ > 0 ? 'Partial' : 'Available';
+              const special = (raft.is_special && occ > 0) ? ' (7-special)' : '';
+
+              doc.text(
+                `  Raft ${raft.raft_id}: ${occ}/${cap} ${status}${special}`,
+                16,
+                yPos
+              );
+              yPos += 5;
+            });
+            yPos += 3;
+          }
+        }
+      }
+
+      // Footer
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.text(
+          `Page ${i} of ${pageCount} - Raft Booking System`,
+          doc.internal.pageSize.getWidth() / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: 'center' }
+        );
+      }
+
+      // Save PDF
+      const filename = `Occupancy_Overview_${from}_to_${to}_${now.toISOString().slice(0, 10)}.pdf`;
+      doc.save(filename);
+
+      if (btn && btnText) {
+        clearInterval(occupancyPdfAnimationInterval);
+        occupancyPdfAnimationInterval = null;
+        btnText.textContent = 'Generated';
+        btn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+        btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+        btn.disabled = false;
+        if (btnIcon) btnIcon.style.display = 'inline';
+        isOccupancyPdfGenerating = false;
+      }
+
+    } catch (err) {
+      console.error('Occupancy PDF error:', err);
+      if (occupancyPdfAnimationInterval) {
+        clearInterval(occupancyPdfAnimationInterval);
+        occupancyPdfAnimationInterval = null;
+      }
+      if (btn && btnText) {
+        btnText.textContent = 'Export to PDF';
+        btn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+        btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+        btn.disabled = false;
+        if (btnIcon) btnIcon.style.display = 'inline';
+        isOccupancyPdfGenerating = false;
+      }
+      alert(`Error generating PDF: ${err.message || err}`);
+    }
+  }
+
+  // Excel Export Functions (Occupancy Overview)
+  let isOccupancyExcelGenerating = false;
+  let occupancyExcelAnimationInterval = null;
+
+  async function exportOccupancyOverviewToExcel() {
+    if (isOccupancyExcelGenerating) return;
+
+    if (typeof XLSX === 'undefined') {
+      alert('Excel export library is loading or unavailable. Please check your network connection.');
+      return;
+    }
+
+    const btn = document.getElementById('exportOccupancyExcelBtn');
+    const btnText = document.getElementById('exportOccupancyExcelBtnText');
+    const btnIcon = document.getElementById('exportOccupancyExcelBtnIcon');
+    if (!btn || !btnText) return;
+
+    isOccupancyExcelGenerating = true;
+    btn.disabled = true;
+
+    btn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+    btn.classList.add('bg-gray-400', 'cursor-not-allowed');
+    if (btnIcon) btnIcon.style.display = 'none';
+
+    const frames = ['Generating.', 'Generating..', 'Generating...'];
+    let frameIdx = 0;
+    btnText.textContent = frames[0];
+
+    occupancyExcelAnimationInterval = setInterval(() => {
+      frameIdx = (frameIdx + 1) % frames.length;
+      btnText.textContent = frames[frameIdx];
+    }, 400);
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      const from = document.getElementById('occupancyFrom')?.value || new Date().toISOString().slice(0, 10);
+      const to = document.getElementById('occupancyTo')?.value || from;
+      const now = new Date();
+
+      const occupancyData = await fetchOccupancy(from, to);
+
+      // Sheet 1: Occupancy Summary
+      const summarySheetData = [];
+      summarySheetData.push(['Cherupuzha River Rafting - Occupancy Overview Report']);
+      summarySheetData.push([`Generated: ${now.toLocaleString()}`]);
+      summarySheetData.push([`Report Date Range: ${from} to ${to}`]);
+      summarySheetData.push([]); // blank row
+
+      const summaryHeaders = ['Date', 'Time Slot', 'Total Rafts', 'Occupied Seats', 'Available Seats', 'Total Capacity', 'Occupancy Rate (%)'];
+      summarySheetData.push(summaryHeaders);
+
+      // Sheet 2: Detailed Raft Breakdown
+      const detailsSheetData = [];
+      detailsSheetData.push(['Cherupuzha River Rafting - Detailed Raft Breakdown']);
+      detailsSheetData.push([`Generated: ${now.toLocaleString()}`]);
+      detailsSheetData.push([`Report Date Range: ${from} to ${to}`]);
+      detailsSheetData.push([]); // blank row
+
+      const detailHeaders = ['Date', 'Time Slot', 'Raft Number', 'Occupied Seats', 'Capacity', 'Available Seats', 'Status', 'Raft Type'];
+      detailsSheetData.push(detailHeaders);
+
+      let totalRafts = 0;
+      let totalOccupancy = 0;
+      let totalCapacity = 0;
+      let hasData = false;
+
+      if (occupancyData && Object.keys(occupancyData).length > 0) {
+        for (const [dateStr, slots] of Object.entries(occupancyData)) {
+          const slotsKeys = Object.keys(slots || {});
+          const slotOrder = [];
+          for (const s of timeSlots) if (slotsKeys.includes(s)) slotOrder.push(s);
+          const others = slotsKeys.filter(s => !timeSlots.includes(s));
+          others.sort((a, b) => parseTimeSlotStart(a) - parseTimeSlotStart(b));
+          slotOrder.push(...others);
+
+          for (const slot of slotOrder) {
+            const rafts = slots[slot];
+            if (!Array.isArray(rafts) || rafts.length === 0) continue;
+            hasData = true;
+
+            const slotRafts = rafts.filter((r, i) => {
+              const occ = Math.max(0, r.occupancy || 0);
+              return i < raftsPerSlot || (r.is_preserved && occ > 0);
+            }).length;
+
+            const slotOccupancy = rafts.reduce((sum, r) => sum + Math.max(0, r.occupancy || 0), 0);
+
+            const slotCapacity = rafts
+              .filter((r, i) => {
+                const occ = Math.max(0, r.occupancy || 0);
+                return i < raftsPerSlot || (r.is_preserved && occ > 0);
+              })
+              .reduce((sum, r) => sum + (r.capacity || defaultCapacity), 0);
+
+            const available = Math.max(0, slotCapacity - slotOccupancy);
+            const occupancyPercent = slotCapacity > 0 ? ((slotOccupancy / slotCapacity) * 100).toFixed(0) : 0;
+
+            summarySheetData.push([
+              dateStr,
+              slot,
+              slotRafts,
+              slotOccupancy,
+              available,
+              slotCapacity,
+              `${occupancyPercent}%`
+            ]);
+
+            totalRafts += slotRafts;
+            totalOccupancy += slotOccupancy;
+            totalCapacity += slotCapacity;
+
+            // Raft details for Sheet 2
+            rafts.forEach((raft, i) => {
+              const occ = Math.max(0, raft.occupancy || 0);
+              const isStandardRaft = i < raftsPerSlot;
+              const isPreservedWithOccupancy = raft.is_preserved && occ > 0;
+
+              // Filter matching UI & PDF
+              if (!isStandardRaft && !isPreservedWithOccupancy) return;
+
+              const cap = raft.capacity || defaultCapacity;
+              const raftStatus = occ >= cap ? 'Full' : (occ > 0 ? 'Partial' : 'Available');
+              let raftType = 'Standard';
+              if (raft.is_special && occ > 0) raftType = '7-special';
+              else if (raft.is_preserved) raftType = 'Preserved';
+
+              detailsSheetData.push([
+                dateStr,
+                slot,
+                `Raft ${raft.raft_id}`,
+                occ,
+                cap,
+                Math.max(0, cap - occ),
+                raftStatus,
+                raftType
+              ]);
+            });
+          }
+        }
+      }
+
+      if (!hasData) {
+        summarySheetData.push(['No occupancy data available for the selected date range.']);
+        detailsSheetData.push(['No occupancy data available for the selected date range.']);
+      } else {
+        const totalAvailable = Math.max(0, totalCapacity - totalOccupancy);
+        const totalOccupancyPercent = totalCapacity > 0 ? ((totalOccupancy / totalCapacity) * 100).toFixed(0) : 0;
+        summarySheetData.push([
+          'TOTAL',
+          'All Slots',
+          totalRafts,
+          totalOccupancy,
+          totalAvailable,
+          totalCapacity,
+          `${totalOccupancyPercent}%`
+        ]);
+      }
+
+      const wb = XLSX.utils.book_new();
+
+      // Create Summary Sheet
+      const wsSummary = XLSX.utils.aoa_to_sheet(summarySheetData);
+      const summaryColWidths = summaryHeaders.map((h, colIdx) => {
+        let maxLen = h.length;
+        for (let r = 4; r < summarySheetData.length; r++) {
+          const row = summarySheetData[r];
+          if (row && row[colIdx] != null) {
+            const str = String(row[colIdx]);
+            if (str.length > maxLen) maxLen = str.length;
+          }
+        }
+        return { wch: Math.min(Math.max(maxLen + 3, 12), 35) };
+      });
+      wsSummary['!cols'] = summaryColWidths;
+      XLSX.utils.book_append_sheet(wb, wsSummary, 'Occupancy Summary');
+
+      // Create Details Sheet
+      const wsDetails = XLSX.utils.aoa_to_sheet(detailsSheetData);
+      const detailsColWidths = detailHeaders.map((h, colIdx) => {
+        let maxLen = h.length;
+        for (let r = 4; r < detailsSheetData.length; r++) {
+          const row = detailsSheetData[r];
+          if (row && row[colIdx] != null) {
+            const str = String(row[colIdx]);
+            if (str.length > maxLen) maxLen = str.length;
+          }
+        }
+        return { wch: Math.min(Math.max(maxLen + 3, 12), 35) };
+      });
+      wsDetails['!cols'] = detailsColWidths;
+      XLSX.utils.book_append_sheet(wb, wsDetails, 'Raft Details');
+
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      const filename = `Occupancy_Overview_${from}_to_${to}_${now.toISOString().slice(0, 10)}.xlsx`;
+      XLSX.writeFile(wb, filename);
+
+      clearInterval(occupancyExcelAnimationInterval);
+      occupancyExcelAnimationInterval = null;
+
+      btnText.textContent = 'Generated';
+      btn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+      btn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
+      btn.disabled = false;
+      if (btnIcon) btnIcon.style.display = 'inline';
+      isOccupancyExcelGenerating = false;
+
+    } catch (err) {
+      console.error('Occupancy Excel error:', err);
+      if (occupancyExcelAnimationInterval) {
+        clearInterval(occupancyExcelAnimationInterval);
+        occupancyExcelAnimationInterval = null;
+      }
+
+      btnText.textContent = 'Export to Excel';
+      btn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+      btn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
+      btn.disabled = false;
+      if (btnIcon) btnIcon.style.display = 'inline';
+      isOccupancyExcelGenerating = false;
+
+      alert(`Error generating Excel: ${err.message || err}`);
+    }
+  }
+</script>
+{% endblock %}

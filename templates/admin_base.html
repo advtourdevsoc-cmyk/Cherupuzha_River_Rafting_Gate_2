@@ -1,0 +1,332 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin Panel - Raft Booking Gate 2</title>
+  <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='images/icon.jpeg') }}">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- jsPDF Library for PDF Export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <!-- SheetJS Library for Excel (.xlsx) Export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script>
+    if (typeof XLSX === 'undefined') {
+      document.write('<script src="{{ url_for("static", filename="js/xlsx.full.min.js") }}"><\/script>');
+    }
+  </script>
+  <style>
+    /* Smooth transitions for sidebar */
+    .sidebar-transition {
+      transition: transform 0.3s ease-in-out;
+    }
+
+    /* Active link styling */
+    .sidebar-link.active {
+      background-color: #1e40af;
+      border-left: 4px solid #3b82f6;
+    }
+
+    /* While mouse is pressed down */
+    .sidebar-link:active {
+      background-color: #4b5563 !important;
+    }
+
+    /* Click feedback: gray color appears on press/click and disappears */
+    @keyframes sidebarClickPulse {
+      0% {
+        background-color: #4b5563;
+      }
+
+      50% {
+        background-color: #4b5563;
+      }
+
+      100% {
+        background-color: transparent;
+      }
+    }
+
+    @keyframes sidebarActiveClickPulse {
+      0% {
+        background-color: #4b5563;
+      }
+
+      50% {
+        background-color: #4b5563;
+      }
+
+      100% {
+        background-color: #1e40af;
+      }
+    }
+
+    .sidebar-link.link-clicked:not(.active) {
+      animation: sidebarClickPulse 0.22s ease-out forwards;
+    }
+
+    .sidebar-link.link-clicked.active {
+      animation: sidebarActiveClickPulse 0.22s ease-out forwards;
+    }
+
+    .sidebar-link:focus {
+      outline: none;
+    }
+
+    /* Mobile menu overlay */
+    @media (max-width: 768px) {
+      .sidebar-mobile {
+        transform: translateX(-100%);
+      }
+
+      .sidebar-mobile.open {
+        transform: translateX(0);
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-gray-100 min-h-screen">
+  <!-- Top Navigation Bar -->
+  <nav class="bg-white p-4 shadow flex justify-between items-center fixed w-full top-0 z-40">
+    <div class="flex items-center">
+      <button id="sidebar-toggle" class="md:hidden mr-4 text-gray-600 hover:text-gray-800">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+      </button>
+      <div class="font-bold text-teal-700"><a href="{{ url_for('booking.home') }}">Raft Booking Gate 2</a></div>
+    </div>
+    <div class="space-x-4">
+      <a href="{{ url_for('booking.home') }}" class="text-sm text-gray-600 hover:text-gray-800">Public Site</a>
+      <a href="{{ url_for('auth.logout') }}" class="text-sm text-red-600 hover:text-red-800">Logout</a>
+    </div>
+  </nav>
+
+  <!-- Sidebar -->
+  <aside id="sidebar"
+    class="fixed left-0 top-16 h-[calc(100vh-4rem)] w-64 bg-gray-900 text-white sidebar-transition sidebar-mobile z-30 overflow-y-auto">
+    <div class="p-4">
+      <h2 class="text-xl font-bold mb-6 text-white flex items-center">
+        <span class="mr-2">🧭</span>
+        {% if current_user.is_subadmin() %}
+        Sub-Admin Panel
+        {% elif current_user.is_supreme_admin() %}
+        Supreme Admin Panel
+        {% else %}
+        Admin Panel
+        {% endif %}
+      </h2>
+      <nav class="flex flex-col space-y-1">
+        <a id="nav-all-bookings" data-endpoint="{{ request.endpoint }}" href="{{ url_for('admin.dashboard') }}"
+          class="sidebar-link flex items-center px-4 py-3 rounded-lg hover:bg-gray-800 transition-colors {% if request.endpoint == 'admin.dashboard' %}active{% endif %}">
+          <span class="mr-3">📊</span>
+          <span>All Bookings</span>
+        </a>
+        {% if not current_user.is_subadmin() %}
+        <a href="{{ url_for('admin.admin_booking') }}"
+          class="sidebar-link flex items-center px-4 py-3 rounded-lg hover:bg-gray-800 transition-colors {% if request.endpoint in ['admin.admin_booking', 'admin.admin_create_booking', 'admin.admin_booking_success'] %}active{% endif %}">
+          <span class="mr-3">🚣</span>
+          <span>Raft Booking</span>
+        </a>
+        <a href="{{ url_for('admin.calendar') }}"
+          class="sidebar-link flex items-center px-4 py-3 rounded-lg hover:bg-gray-800 transition-colors {% if request.endpoint == 'admin.calendar' %}active{% endif %}">
+          <span class="mr-3">🗓️</span>
+          <span>Calendar</span>
+        </a>
+        {% endif %}
+        <a id="nav-occupancy" href="{{ url_for('admin.dashboard') }}#occupancy"
+          class="sidebar-link flex items-center px-4 py-3 rounded-lg hover:bg-gray-800 transition-colors">
+          <span class="mr-3">📈</span>
+          <span>Occupancy Overview</span>
+        </a>
+        {% if current_user.is_supreme_admin() %}
+        <a href="{{ url_for('admin.settings_page') }}"
+          class="sidebar-link flex items-center px-4 py-3 rounded-lg hover:bg-gray-800 transition-colors {% if request.endpoint == 'admin.settings_page' %}active{% endif %}">
+          <span class="mr-3">⚙️</span>
+          <span>Settings</span>
+        </a>
+        {% endif %}
+        {% if not current_user.is_subadmin() %}
+        <a href="{{ url_for('admin.coupon_management') }}"
+          class="sidebar-link flex items-center px-4 py-3 rounded-lg hover:bg-gray-800 transition-colors {% if request.endpoint in ['admin.coupon_management', 'admin.admin_create_coupon'] %}active{% endif %}">
+          <span class="mr-3">🎟️</span>
+          <span>Coupon Generation</span>
+        </a>
+        <a href="{{ url_for('admin.manage_users') }}"
+          class="sidebar-link flex items-center px-4 py-3 rounded-lg hover:bg-gray-800 transition-colors {% if request.endpoint in ['admin.manage_users', 'admin.manage_subadmins', 'admin.manage_admins'] %}active{% endif %}">
+          <span class="mr-3">👑</span>
+          <span>Admin Management</span>
+        </a>
+        {% endif %}
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Mobile Overlay -->
+  <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 hidden md:hidden"></div>
+
+  <!-- Main Content Area -->
+  <main class="md:ml-64 pt-20 min-h-screen">
+    <div class="p-6">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      {% for cat,msg in messages %}
+      <div
+        class="mb-3 p-3 rounded {% if cat=='success' %}bg-green-100 text-green-800{% elif cat=='error' %}bg-red-100 text-red-800{% else %}bg-yellow-100 text-yellow-800{% endif %} border {% if cat=='success' %}border-green-300{% elif cat=='error' %}border-red-300{% else %}border-yellow-300{% endif %}">
+        {{ msg }}
+      </div>
+      {% endfor %}
+      {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  <footer class="text-center p-4 text-sm text-gray-500 md:ml-64">© 2025 Raft Booking</footer>
+
+  <script>
+    // Fix active state for hash-based navigation (Occupancy Overview vs All Bookings)
+    function updateOccupancyActiveState() {
+      var navAllBookings = document.getElementById('nav-all-bookings');
+      var navOccupancy = document.getElementById('nav-occupancy');
+      if (!navAllBookings || !navOccupancy) return;
+      if (window.location.hash === '#occupancy') {
+        navAllBookings.classList.remove('active');
+        navOccupancy.classList.add('active');
+      } else {
+        navOccupancy.classList.remove('active');
+        // Restore All Bookings active only if we are actually on the dashboard endpoint
+        if (navAllBookings.dataset.endpoint === 'admin.dashboard') {
+          navAllBookings.classList.add('active');
+        }
+      }
+    }
+    // Run on page load
+    updateOccupancyActiveState();
+    // Run when the hash changes (e.g. clicking Occupancy Overview)
+    window.addEventListener('hashchange', updateOccupancyActiveState);
+
+    // Sidebar toggle for mobile
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+    function toggleSidebar() {
+      sidebar.classList.toggle('open');
+      sidebarOverlay.classList.toggle('hidden');
+    }
+
+    if (sidebarToggle) {
+      sidebarToggle.addEventListener('click', toggleSidebar);
+    }
+
+    if (sidebarOverlay) {
+      sidebarOverlay.addEventListener('click', toggleSidebar);
+    }
+
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', function (event) {
+      if (window.innerWidth < 768) {
+        if (!sidebar.contains(event.target) &&
+          !sidebarToggle.contains(event.target) &&
+          sidebar.classList.contains('open')) {
+          toggleSidebar();
+        }
+      }
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', function () {
+      if (window.innerWidth >= 768) {
+        sidebar.classList.remove('open');
+        sidebarOverlay.classList.add('hidden');
+      }
+    });
+
+    // Sidebar link click feedback (gray appearance & smooth redirect)
+    var isNavigating = false;
+    document.querySelectorAll('.sidebar-link').forEach(function (link) {
+      link.addEventListener('click', function (e) {
+        // Do not intercept special clicks (e.g. Ctrl/Cmd+click, middle click)
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+
+        var href = this.getAttribute('href');
+        if (!href || href === '#' || href.startsWith('javascript:')) return;
+
+        // Immediately transfer active highlight to clicked link so user feels navigation to the selected page
+        document.querySelectorAll('.sidebar-link.active').forEach(function (activeLink) {
+          activeLink.classList.remove('active');
+        });
+        this.classList.add('active');
+
+        // Apply visual click animation so gray color appears and transitions into the active highlight
+        this.classList.remove('link-clicked');
+        void this.offsetWidth; // Force reflow to restart animation
+        this.classList.add('link-clicked');
+
+        // Check if link is an internal anchor on current page
+        var targetUrl;
+        try {
+          targetUrl = new URL(this.href, window.location.href);
+        } catch (err) {
+          return;
+        }
+
+        var isSamePageHash = (
+          window.location.origin === targetUrl.origin &&
+          window.location.pathname === targetUrl.pathname &&
+          Boolean(targetUrl.hash)
+        );
+
+        if (isSamePageHash) {
+          if (window.innerWidth < 768 && sidebar && sidebar.classList.contains('open')) {
+            toggleSidebar();
+          }
+          setTimeout(function () {
+            link.classList.remove('link-clicked');
+          }, 250);
+          return;
+        }
+
+        // Avoid multiple concurrent navigations
+        if (isNavigating) {
+          e.preventDefault();
+          return;
+        }
+        isNavigating = true;
+
+        // Delay redirect slightly so user perceives the gray color appearing and transitioning into the new page highlight
+        e.preventDefault();
+        setTimeout(function () {
+          window.location.href = href;
+        }, 180);
+      });
+    });
+
+    // Reset state when page is restored from bfcache
+    window.addEventListener('pageshow', function () {
+      isNavigating = false;
+      document.querySelectorAll('.sidebar-link').forEach(function (link) {
+        link.classList.remove('link-clicked');
+      });
+      // Re-sync active highlight to match the current page URL if restored from history
+      var currentPath = window.location.pathname;
+      document.querySelectorAll('.sidebar-link').forEach(function (link) {
+        try {
+          var linkUrl = new URL(link.href, window.location.href);
+          if (linkUrl.pathname === currentPath && !linkUrl.hash) {
+            link.classList.add('active');
+          } else if (linkUrl.pathname !== currentPath) {
+            link.classList.remove('active');
+          }
+        } catch (e) { }
+      });
+      updateOccupancyActiveState();
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,914 @@
+{% extends "admin_base.html" %}
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-4">
+  <!-- Top Navigation Link -->
+  <div class="flex items-center justify-between mb-2">
+    <a href="{{ url_for('admin.admin_booking') }}" class="text-sm font-semibold text-teal-700 hover:text-teal-900 inline-flex items-center gap-1 transition-colors">
+      ← Back to Booking History
+    </a>
+  </div>
+
+  <!-- Dedicated Admin Booking Form Card -->
+  <div class="bg-white p-6 rounded shadow border border-gray-200">
+    <div class="border-b border-gray-100 pb-4 mb-4 flex items-center justify-between">
+      <div>
+        <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+          <span>🚣</span> Book Slot (Admin)
+        </h2>
+        <p class="text-xs text-gray-500 mt-0.5">Create a dedicated custom booking for a customer.</p>
+      </div>
+      <span class="text-xs bg-teal-100 text-teal-800 font-semibold px-2.5 py-1 rounded-full border border-teal-200">
+        Admin Form
+      </span>
+    </div>
+
+    <form id="admin-booking-form" method="POST" action="{{ url_for('admin.admin_create_booking') }}" class="space-y-4">
+      {% with errors = get_flashed_messages(category_filter=['error']) %}
+      <div id="booking-error-banner" class="p-3 rounded-lg bg-red-100 border border-red-300 text-red-800 text-sm font-semibold {% if not errors %}hidden{% endif %}" {% if errors %}data-has-server-error="true"{% endif %}>
+        {% if errors %}
+          {% for err in errors %}
+            <p>❌ {{ err }}</p>
+          {% endfor %}
+        {% endif %}
+      </div>
+      {% endwith %}
+      <div id="email-error-msg" class="p-3 rounded-lg bg-red-100 text-red-800 text-sm font-semibold hidden"></div>
+
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Full Name <span class="text-red-500">*</span></label>
+        <input name="name" placeholder="Full name" value="{{ form_data.name if form_data and form_data.name else '' }}" class="border border-gray-300 rounded p-2.5 w-full text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none bg-white" required>
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
+        <input name="email" placeholder="Email (@gmail.com)" type="email" value="{{ form_data.email if form_data and form_data.email else '' }}" class="border border-gray-300 rounded p-2.5 w-full text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none bg-white"
+          pattern="[a-zA-Z0-9._%+-]+@[gG][mM][aA][iI][lL]\.[cC][oO][mM]" title="Please enter a valid Gmail address (ending in @gmail.com)">
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Phone Number <span class="text-red-500">*</span></label>
+        <div class="flex">
+          <span class="inline-flex items-center px-3 border border-r-0 rounded-l bg-gray-100 text-gray-700 text-sm font-medium">
+            +91
+          </span>
+          <input type="tel" name="phone" placeholder="10-digit whatsapp number" value="{{ form_data.phone if form_data and form_data.phone else '' }}"
+            class="border border-gray-300 rounded-r p-2.5 w-full focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm bg-white font-mono"
+            pattern="[0-9]{10}" minlength="10" maxlength="10" inputmode="numeric" required
+            title="Please enter a valid 10-digit phone number">
+        </div>
+        <p class="text-xs text-gray-500 mt-1">
+          Enter customer whatsapp number.
+        </p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Place / Location <span class="text-red-500">*</span></label>
+        <input name="location" placeholder="e.g. Kannur, Kozhikode, Bangalore" value="{{ form_data.location if form_data and form_data.location else '' }}" class="border border-gray-300 rounded p-2.5 w-full text-sm focus:ring-2 focus:ring-teal-500 focus:outline-none bg-white" required>
+      </div>
+
+      <!-- Instructions Box matching normal customer booking page -->
+      <div class="bg-blue-50 p-4 rounded-lg text-sm text-gray-800 border border-blue-100 shadow-sm">
+        <h3 class="font-bold mb-2 text-blue-900">Instructions:</h3>
+        <ul class="list-disc pl-5 space-y-1 text-gray-700">
+          <li>If the group size is below 4 and the accompanying group cancels, your booking may also be cancelled, as a minimum of 4 participants is required in a raft for weight balance and safety.</li>
+          <li>This is a rain-dependent activity. Water levels may vary. We will notify you one day in advance.</li>
+          <li>Cancellation or postponement is allowed in such rain/water level cases, and a refund will be issued.</li>
+        </ul>
+      </div>
+
+      <!-- Date Picker with Calendar Icon -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Booking Date <span class="text-red-500">*</span></label>
+        <div class="relative">
+          <input id="booking_date" name="booking_date" type="text" value="{{ form_data.booking_date if form_data and form_data.booking_date else '' }}" class="border border-gray-300 p-2.5 w-full pr-10 rounded text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+            placeholder="Select a date" required autocomplete="off" />
+          <button type="button" id="booking_date_btn" aria-label="Open calendar"
+            class="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-gray-600 hover:text-gray-900">
+            📅
+          </button>
+        </div>
+        <small class="text-xs text-gray-500 block mt-1">Select a date between {{ min_date }} and {{ max_date }} (inclusive)</small>
+      </div>
+
+      <!-- Slot Dropdown -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Time Slot <span class="text-red-500">*</span></label>
+        <select name="slot" id="slot-select" class="border border-gray-300 rounded p-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white" required>
+          <option value="" disabled {% if not form_data or not form_data.slot or (settings.time_slots and form_data.slot not in settings.time_slots) %}selected{% endif %}>Select the time slot</option>
+          {% for s in settings.time_slots %}
+          <option value="{{ s }}" {% if form_data and form_data.slot == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Group Size -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Group Size <span class="text-red-500">*</span></label>
+        <input name="group_size" id="group_size_input" type="number" min="1" value="{{ form_data.group_size if form_data and form_data.group_size else '' }}"
+          max="{{ settings.normal_max_people_per_slot if settings and settings.normal_max_people_per_slot else 30 }}"
+          class="border border-gray-300 rounded p-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white font-mono" placeholder="Group size" required>
+        <p class="text-xs text-gray-600 mt-1">
+          Maximum per slot: {{ settings.normal_max_people_per_slot }}.
+          Bulk booking (empty slot only): up to {{ settings.bulk_max_people_per_slot }}.
+        </p>
+      </div>
+
+      <!-- Capacity Status Indicator -->
+      <div id="capacityInfoBox" class="p-3 rounded-lg text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 flex justify-between items-center hidden">
+        <span>Available Capacity:</span>
+        <span id="availCapacityText" class="font-bold"></span>
+      </div>
+
+      <!-- Admin Payment, Discount & Advance Settings -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+        <div>
+          <label class="block text-xs font-semibold text-amber-900 mb-1">Per Person Discount (₹)</label>
+          <input type="number" step="0.01" min="0" name="per_person_discount" id="per_person_discount" value="{{ form_data.per_person_discount if form_data and form_data.per_person_discount else '' }}" placeholder="e.g. 100 or leave blank for 0"
+            class="border border-amber-300 rounded p-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white font-mono">
+          <p class="text-[11px] text-amber-700 mt-1">Deducted from standard ticket price per head.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-amber-900 mb-1">Advance Collected (₹)</label>
+          <input type="number" step="0.01" min="0" name="custom_advance_amount" id="custom_advance_amount" value="{{ form_data.custom_advance_amount if form_data and form_data.custom_advance_amount else '' }}" placeholder="e.g. 1000 or leave blank for 0"
+            class="border border-amber-300 rounded p-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white font-mono">
+          <p class="text-[11px] text-amber-700 mt-1">If blank, defaults to ₹0 advance. Maximum allowed is total booking price.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-amber-900 mb-1">Payment Mode Collected</label>
+          <select name="payment_mode" id="payment_mode" class="border border-amber-300 rounded p-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+            <option value="Cash" {% if form_data and form_data.payment_mode == 'Cash' %}selected{% endif %}>Cash</option>
+            <option value="UPI / GPay" {% if form_data and form_data.payment_mode == 'UPI / GPay' %}selected{% endif %}>UPI / GPay / PhonePe</option>
+            <option value="Bank Transfer" {% if form_data and form_data.payment_mode == 'Bank Transfer' %}selected{% endif %}>Bank Transfer</option>
+            <option value="Direct Admin Booking" {% if form_data and form_data.payment_mode == 'Direct Admin Booking' %}selected{% endif %}>Direct Admin Offline</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Admin Notes -->
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Admin Notes (Optional)</label>
+        <input type="text" name="admin_notes" id="admin_notes" value="{{ form_data.admin_notes if form_data and form_data.admin_notes else '' }}" placeholder="e.g. Booked via phone request"
+          class="border border-gray-300 rounded p-2.5 w-full text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
+      </div>
+
+      <!-- Coupon Code Container -->
+      <div id="coupon-section" class="hidden p-3 bg-emerald-50 border border-emerald-300 rounded-lg space-y-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-emerald-800 uppercase tracking-wide">🎉 Special Discount Coupon Applied!</span>
+          <span id="coupon-badge" class="text-xs bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded"></span>
+        </div>
+        <label class="block text-xs font-semibold text-gray-700">Coupon Code</label>
+        <div class="flex gap-2">
+          <input type="text" id="coupon_code_input" name="coupon_code" value="{{ form_data.coupon_code if form_data and form_data.coupon_code else '' }}" placeholder="e.g. RAFT-K9X2"
+            class="border border-emerald-400 rounded p-2.5 w-full uppercase font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white">
+          <button type="button" id="apply-coupon-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-lg text-xs font-semibold whitespace-nowrap shadow-sm">Apply</button>
+        </div>
+        <p id="coupon-msg" class="text-xs font-medium hidden"></p>
+      </div>
+
+      <!-- Form Submission Button -->
+      <div class="pt-4 text-center">
+        <button type="submit" id="confirm-booking-btn" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-8 rounded-lg text-base shadow-sm transition-colors w-full md:w-auto inline-flex items-center justify-center gap-2">
+          <span id="confirm-btn-text">Proceed</span>
+          <span id="confirm-btn-spinner" class="hidden">
+            <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Flatpickr CSS/JS (CDN) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<style>
+  .flatpickr-day.flatpickr-disabled {
+    color: #9CA3AF !important;
+    cursor: not-allowed !important;
+    text-decoration: line-through;
+    opacity: 0.65;
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const dateInput = document.getElementById('booking_date');
+    const minDate = '{{ min_date }}';
+    const maxDate = '{{ max_date }}';
+
+    function initDatepicker() {
+      let fpInstance = null;
+      let disabledDates = [];
+      let disabledDatesLoaded = false;
+
+      try {
+        fpInstance = flatpickr(dateInput, {
+          altInput: true,
+          altFormat: 'd-m-Y',
+          dateFormat: 'Y-m-d',
+          allowInput: false,
+          minDate: minDate,
+          maxDate: maxDate,
+          disable: [],
+          disableMobile: true,
+          onChange: function (selectedDates, dateStr, instance) {
+            if (!dateStr) {
+              updateSlotAvailability(null);
+              recalculatePricing();
+              return;
+            }
+            const currentDisabled = instance.config.disable || [];
+            if (currentDisabled.some(d => d === dateStr)) {
+              alert('Selected date is fully booked. Please choose another date.');
+              instance.clear();
+              updateSlotAvailability(null);
+              recalculatePricing();
+              return;
+            }
+            updateSlotAvailability(dateStr);
+            recalculatePricing();
+          }
+        });
+
+        const calBtn = document.getElementById('booking_date_btn');
+        if (calBtn) {
+          calBtn.addEventListener('click', function () { fpInstance.open(); });
+        }
+      } catch (err) {
+        console.error('Flatpickr init failed', err);
+        try {
+          dateInput.setAttribute('type', 'date');
+          dateInput.setAttribute('min', minDate);
+          dateInput.setAttribute('max', maxDate);
+        } catch (e) { }
+      }
+
+      let fetchTimeout = null;
+      function fetchDisabledDates() {
+        if (disabledDatesLoaded) return;
+        clearTimeout(fetchTimeout);
+        fetchTimeout = setTimeout(() => {
+          fetch('/fully_booked_dates?_t=' + Date.now())
+            .then(res => res.json())
+            .then(data => {
+              if (data.fully_booked_dates && fpInstance) {
+                disabledDates = data.fully_booked_dates;
+                fpInstance.set('disable', disabledDates);
+                fpInstance.redraw();
+                disabledDatesLoaded = true;
+              }
+            })
+            .catch(err => console.error('Failed to fetch fully booked dates', err));
+        }, 500);
+      }
+
+      let calendarOpened = false;
+      const calButton = document.getElementById('booking_date_btn');
+      if (calButton && fpInstance) {
+        const originalOpen = fpInstance.open.bind(fpInstance);
+        fpInstance.open = function() {
+          if (!calendarOpened && !disabledDatesLoaded) {
+            calendarOpened = true;
+            fetchDisabledDates();
+          }
+          return originalOpen();
+        };
+      }
+      setTimeout(() => {
+        if (!disabledDatesLoaded) {
+          fetchDisabledDates();
+        }
+      }, 1000);
+    }
+
+    initDatepicker();
+
+    if (dateInput) {
+      dateInput.addEventListener('change', function () {
+        if (!this.value) {
+          updateSlotAvailability(null);
+          recalculatePricing();
+        }
+      });
+      dateInput.addEventListener('input', function () {
+        if (!this.value) {
+          updateSlotAvailability(null);
+          recalculatePricing();
+        }
+      });
+    }
+  });
+</script>
+
+<script>
+  let slotAvailMap = {};
+  let updateSlotTimeout = null;
+  let availReqId = 0;
+  let lastFetchedDate = null;
+
+  function resetAvailabilityUI() {
+    const capBox = document.getElementById('capacityInfoBox');
+    const capText = document.getElementById('availCapacityText');
+    const errorBanner = document.getElementById('booking-error-banner');
+    const confirmBtn = document.getElementById('confirm-booking-btn');
+
+    if (capBox) {
+      capBox.className = "p-3 rounded-lg text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 flex justify-between items-center hidden";
+    }
+    if (capText) capText.innerText = '';
+    if (errorBanner && !errorBanner.getAttribute('data-has-server-error')) {
+      errorBanner.classList.add('hidden');
+      errorBanner.textContent = '';
+    }
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+  }
+
+  function updateCapacityDisplay() {
+    const dateInput = document.getElementById('booking_date');
+    const slotSelect = document.getElementById('slot-select');
+    const groupInput = document.getElementById('group_size_input');
+    const capBox = document.getElementById('capacityInfoBox');
+    const capText = document.getElementById('availCapacityText');
+    const confirmBtn = document.getElementById('confirm-booking-btn');
+    const errorBanner = document.getElementById('booking-error-banner');
+
+    if (!capBox || !capText) return;
+
+    const selectedDate = (dateInput ? dateInput.value : '').trim();
+    const selectedSlot = (slotSelect ? slotSelect.value : '').trim();
+
+    // Guard: Availability requires BOTH valid date AND valid time slot
+    if (!selectedDate || !selectedSlot || selectedSlot.toLowerCase().startsWith('select')) {
+      resetAvailabilityUI();
+      return;
+    }
+
+    if (!slotAvailMap || Object.keys(slotAvailMap).length === 0) {
+      capBox.className = "p-3 rounded-lg text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 flex justify-between items-center";
+      capBox.classList.remove('hidden');
+      capText.innerText = 'Checking...';
+      return;
+    }
+
+    const selInfo = slotAvailMap[selectedSlot];
+    if (!selInfo) {
+      capBox.className = "p-3 rounded-lg text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 flex justify-between items-center";
+      capBox.classList.remove('hidden');
+      capText.innerText = 'Checking...';
+      return;
+    }
+
+    const available = selInfo.available !== undefined ? selInfo.available : 0;
+    const rawGroupVal = groupInput ? (groupInput.value || '').trim() : '';
+    const hasGroupVal = rawGroupVal !== '' && !isNaN(rawGroupVal);
+    const wanted = hasGroupVal ? parseInt(rawGroupVal, 10) : 0;
+    const maxSmallGroup = selInfo.max_small_group !== undefined ? selInfo.max_small_group : 0;
+    const hasSmallGroupCap = wanted > 0 && wanted < 4 ? (wanted <= maxSmallGroup) : (selInfo.has_small_group_capacity || false);
+
+    if (available <= 0) {
+      const msg = 'Selected slot is fully booked. Please select another slot or date.';
+      if (errorBanner) {
+        errorBanner.textContent = '❌ ' + msg;
+        errorBanner.classList.remove('hidden');
+        errorBanner.removeAttribute('data-has-server-error');
+      }
+      capBox.className = "p-3 rounded-lg text-xs font-semibold bg-red-100 text-red-900 border border-red-200 flex justify-between items-center";
+      capBox.classList.remove('hidden');
+      capText.innerText = '0 seats (Full!)';
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      }
+    } else if (hasGroupVal && wanted > available) {
+      const msg = `Invalid group size. Maximum available for this slot is ${available} people.`;
+      if (errorBanner) {
+        errorBanner.textContent = '❌ ' + msg;
+        errorBanner.classList.remove('hidden');
+        errorBanner.removeAttribute('data-has-server-error');
+      }
+      capBox.className = "p-3 rounded-lg text-xs font-semibold bg-red-100 text-red-900 border border-red-200 flex justify-between items-center";
+      capBox.classList.remove('hidden');
+      capText.innerText = available + ' seats (Full!)';
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      }
+    } else if (hasGroupVal && wanted > 0 && wanted < 4 && !hasSmallGroupCap) {
+      const msg = 'Oops! Your entered group size is below the minimum requirement.';
+      if (errorBanner) {
+        errorBanner.textContent = '❌ ' + msg;
+        errorBanner.classList.remove('hidden');
+        errorBanner.removeAttribute('data-has-server-error');
+      }
+      capBox.className = "p-3 rounded-lg text-xs font-semibold bg-yellow-100 text-yellow-900 border border-yellow-200 flex justify-between items-center";
+      capBox.classList.remove('hidden');
+      capText.innerText = available + ' seats (Min group 4 required)';
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      }
+    } else {
+      if (errorBanner && !errorBanner.getAttribute('data-has-server-error')) {
+        errorBanner.classList.add('hidden');
+        errorBanner.textContent = '';
+      }
+      capBox.className = "p-3 rounded-lg text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200 flex justify-between items-center";
+      capBox.classList.remove('hidden');
+      capText.innerText = available + ' seats available';
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    }
+  }
+
+  function renderSlotOptionsAndCapacity(slotSelect, groupSizeInput) {
+    // Dynamic slots from slotAvailMap (for date-specific immediate slots)
+    Array.from(slotSelect.querySelectorAll('option[data-dynamic="true"]')).forEach(opt => opt.remove());
+    if (slotAvailMap) {
+      const existingValues = new Set(Array.from(slotSelect.options).map(o => o.value));
+      Object.keys(slotAvailMap).forEach(s => {
+        if (s && !existingValues.has(s)) {
+          const newOpt = document.createElement('option');
+          newOpt.value = s;
+          newOpt.textContent = s;
+          newOpt.setAttribute('data-label', s);
+          newOpt.setAttribute('data-dynamic', 'true');
+          slotSelect.appendChild(newOpt);
+        }
+      });
+    }
+
+    Array.from(slotSelect.options).forEach(opt => {
+      if (!opt.value) return;
+      if (!opt.getAttribute('data-label')) {
+        opt.setAttribute('data-label', opt.textContent.replace(' (FULL)', '').trim());
+      }
+      const baseLabel = opt.getAttribute('data-label') || opt.value;
+      const val = opt.value;
+      const info = slotAvailMap[val];
+      if (info && info.full) {
+        opt.disabled = false;
+        opt.style.color = '#9CA3AF';
+        opt.textContent = baseLabel + ' (FULL)';
+      } else {
+        opt.disabled = false;
+        opt.style.color = '';
+        opt.textContent = baseLabel;
+      }
+    });
+
+    if (groupSizeInput && slotSelect.value) {
+      const selInfo = slotAvailMap[slotSelect.value];
+      if (selInfo) {
+        const avail = selInfo.available || 0;
+        if (avail > 0) {
+          groupSizeInput.max = avail;
+        } else {
+          groupSizeInput.max = 0;
+          groupSizeInput.value = '';
+        }
+      }
+    }
+
+    const dateInput = document.getElementById('booking_date');
+    const curDate = (dateInput ? dateInput.value : '').trim();
+    const curSlot = (slotSelect ? slotSelect.value : '').trim();
+    if (curDate && curSlot && !curSlot.toLowerCase().startsWith('select')) {
+      updateCapacityDisplay();
+    } else {
+      resetAvailabilityUI();
+    }
+  }
+
+  async function updateSlotAvailability(day) {
+    const slotSelect = document.getElementById('slot-select');
+    const groupSizeInput = document.getElementById('group_size_input');
+    const capBox = document.getElementById('capacityInfoBox');
+    const capText = document.getElementById('availCapacityText');
+    const reqId = ++availReqId;
+    
+    if (!slotSelect) return;
+    if (!day) {
+      Array.from(slotSelect.querySelectorAll('option[data-dynamic="true"]')).forEach(opt => opt.remove());
+      Array.from(slotSelect.options).forEach(opt => {
+        if (!opt.value) return;
+        opt.disabled = false;
+        opt.style.color = '';
+        opt.textContent = opt.getAttribute('data-label') || opt.value;
+      });
+      if (groupSizeInput) {
+        groupSizeInput.removeAttribute('max');
+      }
+      slotAvailMap = {};
+      lastFetchedDate = null;
+      resetAvailabilityUI();
+      return;
+    }
+
+    // A new date has been selected: clear stale availability display immediately while fetching
+    resetAvailabilityUI();
+
+    // Avoid unnecessary additional requests when the selected date's availability data is already available and valid
+    if (day === lastFetchedDate && slotAvailMap && Object.keys(slotAvailMap).length > 0) {
+      renderSlotOptionsAndCapacity(slotSelect, groupSizeInput);
+      return;
+    }
+
+    clearTimeout(updateSlotTimeout);
+    updateSlotTimeout = setTimeout(async () => {
+      try {
+        const res = await fetch('/slot_availability?day=' + encodeURIComponent(day) + '&_t=' + Date.now());
+        if (reqId !== availReqId) return;
+
+        if (!res.ok) {
+          console.error('Failed to fetch slot availability');
+          const dateInput = document.getElementById('booking_date');
+          const curDate = (dateInput ? dateInput.value : '').trim();
+          const curSlot = (slotSelect ? slotSelect.value : '').trim();
+          if (curDate && curSlot && !curSlot.toLowerCase().startsWith('select')) {
+            if (capBox) {
+              capBox.classList.remove('hidden');
+              capBox.className = "p-3 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-300 flex justify-between items-center";
+            }
+            if (capText) {
+              capText.innerText = 'Unable to check availability';
+            }
+          } else {
+            resetAvailabilityUI();
+          }
+          return;
+        }
+
+        const json = await res.json();
+        if (reqId !== availReqId) return;
+        slotAvailMap = json || {};
+        lastFetchedDate = day;
+
+        renderSlotOptionsAndCapacity(slotSelect, groupSizeInput);
+      } catch (err) {
+        if (reqId !== availReqId) return;
+        console.error('Error updating slot availability', err);
+        const dateInput = document.getElementById('booking_date');
+        const curDate = (dateInput ? dateInput.value : '').trim();
+        const curSlot = (slotSelect ? slotSelect.value : '').trim();
+        if (curDate && curSlot && !curSlot.toLowerCase().startsWith('select')) {
+          if (capBox) {
+            capBox.classList.remove('hidden');
+            capBox.className = "p-3 rounded-lg text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-300 flex justify-between items-center";
+          }
+          if (capText) {
+            capText.innerText = 'Unable to check availability';
+          }
+        } else {
+          resetAvailabilityUI();
+        }
+      }
+    }, 150);
+  }
+
+  let pricingReqId = 0;
+
+  function recalculatePricing() {
+    const dateInput = document.getElementById('booking_date');
+    const slotSelect = document.getElementById('slot-select');
+    const groupInput = document.getElementById('group_size_input');
+    const customAdvInput = document.getElementById('custom_advance_amount');
+    const perPersonDiscInput = document.getElementById('per_person_discount');
+    const couponInput = document.getElementById('coupon_code_input');
+    const phoneInput = document.querySelector('input[name="phone"]');
+    const emailInput = document.querySelector('input[name="email"]');
+
+    if (!dateInput || !slotSelect || !groupInput) return;
+
+    const selectedDate = (dateInput.value || '').trim();
+    const selectedSlot = (slotSelect.value || '').trim();
+
+    // Guard: Availability and pricing breakdown for slot requires both date and valid slot
+    if (!selectedDate || !selectedSlot || selectedSlot.toLowerCase().startsWith('select')) {
+      pricingReqId++;
+      resetAvailabilityUI();
+      return;
+    }
+
+    const currentReqId = ++pricingReqId;
+
+    const payload = {
+      date: selectedDate,
+      slot: selectedSlot,
+      group_size: groupInput.value,
+      custom_advance: customAdvInput ? customAdvInput.value : '',
+      per_person_discount: perPersonDiscInput ? perPersonDiscInput.value : '',
+      coupon_code: couponInput ? couponInput.value : '',
+      phone: phoneInput ? phoneInput.value : '',
+      email: emailInput ? emailInput.value : ''
+    };
+
+    fetch("{{ url_for('admin.calculate_admin_booking_pricing') }}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(res => {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    })
+    .then(data => {
+      if (currentReqId !== pricingReqId) return;
+      if (!data || !data.success) return;
+
+      const curDate = (dateInput.value || '').trim();
+      const curSlot = (slotSelect.value || '').trim();
+      if (!curDate || !curSlot || curDate !== selectedDate || curSlot !== selectedSlot) {
+        return;
+      }
+
+      // Pricing response is processed independently of capacity display.
+      // Available raft capacity is displayed immediately and independently by updateCapacityDisplay().
+    })
+    .catch(err => {
+      console.error("Pricing calc error:", err);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const form = document.querySelector('form');
+    const emailInput = document.querySelector('input[name="email"]');
+    const errorMsgDiv = document.getElementById('email-error-msg');
+
+    if (emailInput && errorMsgDiv) {
+      emailInput.addEventListener('invalid', function (e) {
+        e.preventDefault();
+        errorMsgDiv.textContent = 'Please enter a valid Gmail address (ending in @gmail.com).';
+        errorMsgDiv.classList.remove('hidden');
+        errorMsgDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+
+      if (form) {
+        form.addEventListener('submit', function (e) {
+          const slotSelect = document.getElementById('slot-select');
+          const slotVal = (slotSelect ? slotSelect.value : '').trim();
+          if (!slotVal || slotVal.toLowerCase().startsWith('select')) {
+            e.preventDefault();
+            const errorBanner = document.getElementById('booking-error-banner');
+            if (errorBanner) {
+              errorBanner.innerHTML = '<p>❌ Please select a valid time slot.</p>';
+              errorBanner.classList.remove('hidden');
+              errorBanner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            if (slotSelect) {
+              slotSelect.focus();
+            }
+            return;
+          }
+
+          const emailVal = emailInput.value.trim().toLowerCase();
+          if (emailVal.length > 0 && !emailVal.endsWith('@gmail.com')) {
+            e.preventDefault();
+            errorMsgDiv.textContent = 'Please enter a valid Gmail address (ending in @gmail.com).';
+            errorMsgDiv.classList.remove('hidden');
+            errorMsgDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            emailInput.focus();
+            return;
+          } else {
+            errorMsgDiv.classList.add('hidden');
+          }
+
+          if (!e.defaultPrevented) {
+            const confirmBtn = document.getElementById('confirm-booking-btn');
+            if (confirmBtn) {
+              confirmBtn.style.pointerEvents = 'none';
+              confirmBtn.style.opacity = '0.6';
+              confirmBtn.style.cursor = 'not-allowed';
+              confirmBtn.innerHTML = '<span style="font-size:1.2rem;vertical-align:middle;margin-right:6px;">⏳</span><span style="font-weight:bold;">Processing... Please wait...</span>';
+              setTimeout(function () { confirmBtn.disabled = true; }, 0);
+            }
+          }
+        });
+      }
+
+      const slotSelectElem = document.getElementById('slot-select');
+      if (slotSelectElem) {
+        slotSelectElem.addEventListener('change', function () {
+          const slotVal = (slotSelectElem.value || '').trim();
+          if (slotVal && !slotVal.toLowerCase().startsWith('select')) {
+            const errorBanner = document.getElementById('booking-error-banner');
+            if (errorBanner && errorBanner.innerHTML.includes('Please select a valid time slot')) {
+              errorBanner.classList.add('hidden');
+            }
+          }
+        });
+      }
+
+      emailInput.addEventListener('input', function () {
+        const emailVal = emailInput.value.trim().toLowerCase();
+        if (!emailVal || emailVal.endsWith('@gmail.com')) {
+          errorMsgDiv.classList.add('hidden');
+        }
+      });
+    }
+
+    const phoneInput = document.querySelector('input[name="phone"]');
+    const groupSizeInput = document.getElementById('group_size_input');
+    const emailInputForCoupon = document.querySelector('input[name="email"]');
+    const couponSection = document.getElementById('coupon-section');
+    const couponBadge = document.getElementById('coupon-badge');
+    const couponInput = document.getElementById('coupon_code_input');
+    const applyBtn = document.getElementById('apply-coupon-btn');
+    const couponMsg = document.getElementById('coupon-msg');
+
+    let checkedKey = '';
+
+    function resetCouponSection() {
+      if (couponSection) couponSection.classList.add('hidden');
+      if (couponBadge) couponBadge.textContent = '';
+      if (couponInput) {
+        couponInput.value = '';
+        couponInput.readOnly = false;
+        couponInput.classList.remove('bg-emerald-100', 'text-emerald-900', 'border-emerald-400', 'cursor-not-allowed', 'opacity-90');
+      }
+      if (couponMsg) {
+        couponMsg.textContent = '';
+        couponMsg.className = 'text-xs mt-1 font-medium hidden';
+      }
+      if (applyBtn) applyBtn.classList.remove('hidden');
+    }
+
+    const bookingDateInput = document.getElementById('booking_date');
+
+    async function checkPhoneCoupon() {
+      const phone = phoneInput ? phoneInput.value.trim() : '';
+      const groupSizeVal = groupSizeInput ? groupSizeInput.value.trim() : '';
+      const groupSize = parseInt(groupSizeVal, 10);
+      const emailVal = emailInputForCoupon ? emailInputForCoupon.value.trim().toLowerCase() : '';
+      const dateVal = bookingDateInput ? bookingDateInput.value.trim() : '';
+
+      if (phone.length === 10 && /^\d{10}$/.test(phone) && !isNaN(groupSize) && groupSize > 0) {
+        const currentKey = `${phone}_${emailVal}_${groupSize}_${dateVal}`;
+        if (currentKey === checkedKey && couponSection && !couponSection.classList.contains('hidden')) return;
+        checkedKey = currentKey;
+        try {
+          const res = await fetch(`/check_coupon?phone=${encodeURIComponent(phone)}&email=${encodeURIComponent(emailVal)}&group_size=${encodeURIComponent(groupSize)}&date=${encodeURIComponent(dateVal)}`);
+          const data = await res.json();
+          if (data.has_coupon) {
+            couponSection.classList.remove('hidden');
+            const discountText = data.discount_type === 'per_head' ? `₹${data.discount_value}/head OFF` : (data.discount_type === 'flat' ? `₹${data.discount_value} OFF` : `${data.discount_value}% OFF`);
+            couponBadge.textContent = discountText;
+            if (data.code && (!couponInput.value || couponInput.value.trim() === '' || couponInput.value !== data.code)) {
+              couponInput.value = data.code;
+            }
+          } else {
+            resetCouponSection();
+          }
+        } catch (e) {
+          console.error('Error checking coupon:', e);
+        }
+      } else {
+        resetCouponSection();
+        checkedKey = '';
+      }
+    }
+
+    if (phoneInput) {
+      phoneInput.addEventListener('input', checkPhoneCoupon);
+      phoneInput.addEventListener('blur', checkPhoneCoupon);
+    }
+    if (groupSizeInput) {
+      groupSizeInput.addEventListener('input', function () {
+        updateCapacityDisplay();
+        checkPhoneCoupon();
+        recalculatePricing();
+      });
+      groupSizeInput.addEventListener('change', function () {
+        updateCapacityDisplay();
+        checkPhoneCoupon();
+        recalculatePricing();
+      });
+      groupSizeInput.addEventListener('blur', function () {
+        checkPhoneCoupon();
+        recalculatePricing();
+      });
+    }
+    if (emailInputForCoupon) {
+      emailInputForCoupon.addEventListener('input', checkPhoneCoupon);
+      emailInputForCoupon.addEventListener('change', checkPhoneCoupon);
+      emailInputForCoupon.addEventListener('blur', checkPhoneCoupon);
+    }
+
+    if (applyBtn) {
+      applyBtn.addEventListener('click', async function () {
+        const phone = phoneInput ? phoneInput.value.trim() : '';
+        const code = couponInput ? couponInput.value.trim() : '';
+        const email = emailInputForCoupon ? emailInputForCoupon.value.trim() : '';
+        const groupSize = groupSizeInput ? groupSizeInput.value.trim() : '';
+        if (!code) return;
+        try {
+          const res = await fetch('/validate_coupon', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ phone: phone, code: code, email: email, group_size: groupSize })
+          });
+          const data = await res.json();
+          if (couponMsg) {
+            couponMsg.classList.remove('hidden');
+            if (data.valid) {
+              const discountText = data.discount_type === 'per_head' ? `₹${data.discount_value}/head OFF` : (data.discount_type === 'flat' ? `₹${data.discount_value} OFF` : `${data.discount_value}% OFF`);
+              couponMsg.className = 'text-xs mt-1 font-semibold text-emerald-700';
+              couponMsg.textContent = `✓ Coupon ${data.code} Applied! (${discountText})`;
+              if (couponBadge) couponBadge.textContent = `✓ Applied (${discountText})`;
+              if (couponInput) {
+                couponInput.readOnly = true;
+                couponInput.classList.add('bg-emerald-100', 'text-emerald-900', 'border-emerald-400', 'cursor-not-allowed', 'opacity-90');
+              }
+              if (applyBtn) applyBtn.classList.add('hidden');
+            } else {
+              couponMsg.className = 'text-xs mt-1 font-medium text-red-600';
+              couponMsg.textContent = `❌ ${data.message || 'Invalid coupon code.'}`;
+              if (couponInput) {
+                couponInput.readOnly = false;
+                couponInput.classList.remove('bg-emerald-100', 'text-emerald-900', 'border-emerald-400', 'cursor-not-allowed', 'opacity-90');
+              }
+              if (applyBtn) applyBtn.classList.remove('hidden');
+            }
+          }
+        } catch (e) {
+          if (couponMsg) {
+            couponMsg.classList.remove('hidden');
+            couponMsg.className = 'text-xs mt-1 font-medium text-red-600';
+            couponMsg.textContent = '❌ Failed to validate coupon.';
+          }
+        }
+        recalculatePricing();
+      });
+    }
+
+    const adminBookingForm = document.getElementById('admin-booking-form') || document.querySelector('form');
+    if (adminBookingForm) {
+      adminBookingForm.addEventListener('submit', function () {
+        const confirmBtn = document.getElementById('confirm-booking-btn');
+        const confirmText = document.getElementById('confirm-btn-text');
+        const confirmSpinner = document.getElementById('confirm-btn-spinner');
+        if (confirmBtn && confirmText && confirmSpinner) {
+          confirmText.textContent = 'Creating Booking...';
+          confirmSpinner.classList.remove('hidden');
+        }
+      });
+    }
+
+    window.addEventListener('pageshow', function () {
+      const confirmBtn = document.getElementById('confirm-booking-btn');
+      const confirmText = document.getElementById('confirm-btn-text');
+      const confirmSpinner = document.getElementById('confirm-btn-spinner');
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.style.pointerEvents = '';
+        confirmBtn.style.opacity = '';
+        confirmBtn.style.cursor = '';
+      }
+      if (confirmText) confirmText.textContent = 'Proceed';
+      if (confirmSpinner) confirmSpinner.classList.add('hidden');
+    });
+
+    const slotSelect = document.getElementById('slot-select');
+    if (slotSelect) {
+      slotSelect.addEventListener('change', function () {
+        if (slotAvailMap) {
+          const info = slotAvailMap[this.value];
+          if (groupSizeInput) {
+            if (info) {
+              const avail = info.available || 0;
+              groupSizeInput.max = avail > 0 ? avail : 0;
+            } else {
+              groupSizeInput.removeAttribute('max');
+            }
+          }
+        }
+        updateCapacityDisplay();
+        recalculatePricing();
+      });
+      slotSelect.addEventListener('input', function () {
+        updateCapacityDisplay();
+        recalculatePricing();
+      });
+    }
+
+    const dateInput = document.getElementById('booking_date');
+    if (dateInput && dateInput.value && dateInput.value.trim() !== '') {
+      updateSlotAvailability(dateInput.value.trim());
+    } else {
+      resetAvailabilityUI();
+    }
+
+    recalculatePricing();
+  });
+</script>
+{% endblock %}

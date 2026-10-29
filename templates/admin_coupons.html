@@ -1,0 +1,605 @@
+{% extends "admin_base.html" %}
+
+{% block content %}
+{% if coupon_success_data %}
+<!-- Temporary Success Notification Toast -->
+<div id="coupon-success-toast"
+     class="fixed top-20 right-4 sm:right-6 z-50 max-w-sm w-full bg-white border border-emerald-300 rounded-xl shadow-lg p-4 transition-all duration-500 ease-out transform translate-y-0 opacity-100 pointer-events-auto"
+     role="alert"
+     aria-live="polite">
+  <div class="flex items-start gap-3">
+    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-base">
+      ✓
+    </div>
+    <div class="flex-1 min-w-0">
+      <h4 class="text-sm font-bold text-gray-900 flex items-center gap-1.5">
+        <span>Coupon Generated Successfully!</span>
+      </h4>
+      <div class="text-xs text-gray-600 space-y-1 mt-2">
+        {% if coupon_success_data.code %}
+        <div class="flex items-center gap-1.5">
+          <span class="font-medium text-gray-500">Coupon Code:</span>
+          <span class="font-mono text-gray-800 font-bold truncate">{{ coupon_success_data.code }}</span>
+        </div>
+        {% endif %}
+        {% if coupon_success_data.discount_value %}
+        <div class="flex items-center gap-1.5">
+          <span class="font-medium text-gray-500">Discount:</span>
+          <span class="text-gray-800">₹{{ coupon_success_data.discount_value }}/head</span>
+        </div>
+        {% endif %}
+        {% if coupon_success_data.phone %}
+        <div class="flex items-center gap-1.5">
+          <span class="font-medium text-gray-500">Customer:</span>
+          <span class="font-mono text-gray-800 truncate">+91 {{ coupon_success_data.phone }}</span>
+        </div>
+        {% endif %}
+        {% if coupon_success_data.group_size %}
+        <div class="flex items-center gap-1.5">
+          <span class="font-medium text-gray-500">Group Size:</span>
+          <span class="text-gray-800">{{ coupon_success_data.group_size }} participants</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const toast = document.getElementById('coupon-success-toast');
+    if (toast) {
+      setTimeout(function () {
+        toast.style.transition = 'opacity 0.6s ease-out, transform 0.6s ease-out';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px)';
+        setTimeout(function () {
+          toast.remove();
+        }, 600);
+      }, 4000);
+    }
+  });
+</script>
+{% endif %}
+<div class="max-w-7xl mx-auto space-y-6">
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+        <span>🎟️</span> Coupon Generation
+      </h1>
+      <p class="text-sm text-gray-500 mt-1">Generate one-time negotiated discount coupons for customers and view generated coupon history.</p>
+    </div>
+    <div>
+      <a href="{{ url_for('admin.admin_create_coupon') }}" id="toggleGenerateFormBtn" class="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-semibold rounded-lg shadow-sm transition-colors flex items-center gap-2 text-sm whitespace-nowrap cursor-pointer">
+        <span>✨</span>
+        <span>Generate Coupon</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Coupon History List (Main Content Area) -->
+  <!-- Coupon History List (Main Content Area matching Create Booking Page) -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <h3 class="font-bold text-lg text-gray-800 flex items-center gap-2">
+          <span>📋</span> Coupon History
+        </h3>
+        <span id="coupon-count-badge" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+          {{ coupons|length }} Coupons
+        </span>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button type="button" id="toggle-coupon-filter-btn" onclick="toggleCouponFilterPanel()" title="Filter Coupons"
+          class="bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-semibold text-xs py-2 px-3 rounded-lg shadow-sm transition-colors inline-flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
+          <span>🔍</span> Filter
+        </button>
+        <button type="button" id="toggle-coupon-delete-range-btn" onclick="toggleCouponDeleteRangePanel()" title="Delete Range"
+          class="bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-semibold text-xs py-2 px-3 rounded-lg shadow-sm transition-colors inline-flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
+          <span>🗑️</span> Delete Range
+        </button>
+      </div>
+    </div>
+
+    <div class="p-6 space-y-4">
+      <!-- Coupon History Filter Panel -->
+      <div id="coupon-filter-panel" class="hidden p-4 bg-gray-50 rounded-xl border border-gray-200 shadow-sm transition-all duration-200">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">From Date</label>
+            <input type="date" id="historyStartDate" value="{{ filter_from_date or '' }}" data-server-date="{{ filter_from_date or '' }}" onchange="filterCouponHistory()"
+              class="w-full border border-gray-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">To Date</label>
+            <input type="date" id="historyEndDate" value="{{ filter_to_date or '' }}" data-server-date="{{ filter_to_date or '' }}" onchange="filterCouponHistory()"
+              class="w-full border border-gray-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Status</label>
+            <select id="historyStatus" onchange="filterCouponHistory()"
+              class="w-full border border-gray-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white font-medium text-gray-700">
+              <option value="all" {% if not filter_status or filter_status == 'all' %}selected{% endif %}>All Statuses</option>
+              <option value="Valid" {% if filter_status == 'Valid' %}selected{% endif %}>Valid</option>
+              <option value="Used" {% if filter_status == 'Used' %}selected{% endif %}>Used</option>
+              <option value="Expired" {% if filter_status == 'Expired' %}selected{% endif %}>Expired</option>
+              <option value="Revoked" {% if filter_status == 'Revoked' %}selected{% endif %}>Revoked</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">Search</label>
+            <input type="text" id="historySearch" value="{{ filter_search or '' }}" onkeyup="filterCouponHistory()" placeholder="Code, phone, email..."
+              class="w-full border border-gray-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+          </div>
+
+          <div class="flex gap-2">
+            <button type="button" id="apply-coupon-filter-btn" onclick="filterCouponHistory()" title="Filter"
+              class="flex-1 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white text-xs font-semibold py-2 px-3 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
+              <span>🔍</span> Filter
+            </button>
+            <button type="button" id="reset-coupon-filter-btn" onclick="clearDateFilter()" title="Clear filter"
+              class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-semibold py-2 px-3 rounded-lg text-center transition-colors cursor-pointer">
+              ↺ Reset
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coupon History Delete Range Panel -->
+      <div id="coupon-delete-range-panel" class="hidden p-4 bg-red-50/60 rounded-xl border border-red-200 shadow-sm transition-all duration-200">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">From Date</label>
+            <input type="date" id="deleteStartDate"
+              class="w-full border border-gray-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-red-500 bg-white">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">To Date</label>
+            <input type="date" id="deleteEndDate"
+              class="w-full border border-gray-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-2 focus:ring-red-500 bg-white">
+          </div>
+
+          <div>
+            <button type="button" id="submit-delete-range-btn" onclick="deleteCouponsByDateRange()" title="Delete"
+              class="w-full sm:w-auto bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-semibold text-xs py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer">
+              <span>🗑️</span> Delete
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coupon History Table (Matching Create Booking Table Container) -->
+      <div class="overflow-x-auto rounded-lg border border-gray-200">
+        <table class="w-full text-left text-sm border-collapse" id="couponTable">
+          <thead>
+            <tr class="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th class="py-3 px-4">Coupon Code</th>
+              <th class="py-3 px-4">Customer Phone</th>
+              <th class="py-3 px-4 text-center">Group Size</th>
+              <th class="py-3 px-4">Discount</th>
+              <th class="py-3 px-4">Applicable Days</th>
+              <th class="py-3 px-4">Customer Email</th>
+              <th class="py-3 px-4">Generated Date</th>
+              <th class="py-3 px-4 text-center">Status</th>
+              <th class="py-3 px-4 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 text-gray-700 bg-white" id="couponTableBody">
+            {% if coupons %}
+              {% for c in coupons %}
+                <tr class="hover:bg-gray-50 transition-colors" data-phone="{{ c.phone }}" data-created-date="{{ c.created_date_iso }}" data-status="{% if c.is_revoked or c.is_deleted %}Revoked{% elif c.is_used %}Used{% elif c.is_expired %}Expired{% else %}Valid{% endif %}">
+                  <td class="py-3.5 px-4 font-mono font-bold text-amber-900">
+                    <span class="bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-md text-xs tracking-wider">
+                      {{ c.code }}
+                    </span>
+                  </td>
+                  <td class="py-3.5 px-4 font-mono font-medium">
+                    {{ c.phone|format_phone }}
+                  </td>
+                  <td class="py-3.5 px-4 text-center font-mono font-semibold text-gray-800">
+                    {{ c.group_size if c.group_size else '-' }}
+                  </td>
+                  <td class="py-3.5 px-4 font-semibold text-emerald-700">
+                    {% if c.discount_type == 'per_head' %}
+                      ₹{{ "%.2f"|format(c.discount_value|float) }}/head
+                    {% elif c.discount_type == 'flat' %}
+                      ₹{{ "%.2f"|format(c.discount_value|float) }} Flat
+                    {% elif c.discount_type == 'percentage' %}
+                      {{ c.discount_value }}%
+                    {% else %}
+                      ₹{{ c.discount_value }}
+                    {% endif %}
+                  </td>
+                  <td class="py-3.5 px-4 text-xs font-medium">
+                    {% if c.valid_day_types %}
+                      {% if 'weekday' in c.valid_day_types and 'weekend' in c.valid_day_types %}
+                        <span class="bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded font-semibold">All Days</span>
+                      {% elif 'weekday' in c.valid_day_types %}
+                        <span class="bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded font-semibold">Mon–Fri</span>
+                      {% elif 'weekend' in c.valid_day_types %}
+                        <span class="bg-purple-50 text-purple-800 border border-purple-200 px-2 py-0.5 rounded font-semibold">Sat–Sun</span>
+                      {% else %}
+                        <span class="bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded font-semibold">All Days</span>
+                      {% endif %}
+                    {% else %}
+                      <span class="bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded font-semibold">All Days</span>
+                    {% endif %}
+                  </td>
+                  <td class="py-3.5 px-4 text-xs text-gray-600">
+                    {{ c.email or '-' }}
+                  </td>
+                  <td class="py-3.5 px-4 text-xs text-gray-500 whitespace-nowrap">
+                    {% if c.created_at_ist %}
+                      {{ c.created_at_ist }}
+                    {% elif c.created_at %}
+                      {{ c.created_at|format_ist }}
+                    {% else %}
+                      -
+                    {% endif %}
+                  </td>
+                  <td class="py-3.5 px-4 text-center">
+                    {% if c.is_revoked or c.is_deleted %}
+                      <span class="inline-flex items-center bg-red-100 text-red-800 border border-red-300 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                        Revoked
+                      </span>
+                    {% elif c.is_used %}
+                      <span class="inline-flex items-center bg-gray-100 text-gray-700 border border-gray-300 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                        Used
+                      </span>
+                    {% elif c.is_expired %}
+                      <span class="inline-flex items-center bg-amber-100 text-amber-800 border border-amber-300 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                        Expired
+                      </span>
+                    {% else %}
+                      <span class="inline-flex items-center bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                        Valid
+                      </span>
+                    {% endif %}
+                  </td>
+                  <td class="py-3.5 px-4 text-center">
+                    <button type="button" onclick="deleteSingleCoupon('{{ c._id }}', '{{ c.code }}')" class="bg-red-500 hover:bg-red-600 text-white font-medium text-xs px-2.5 py-1 rounded transition-colors whitespace-nowrap shadow-sm">
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              {% endfor %}
+            {% else %}
+              <tr id="emptyRow">
+                <td colspan="9" class="py-8 text-center text-gray-400 font-medium">
+                  No coupons generated yet. Click "Generate Coupon" above to create your first coupon!
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+  const FILTER_STORAGE_KEY = 'coupon_history_filter_panel_open';
+  const FILTER_VALUES_KEY = 'coupon_history_filter_values';
+
+  function isPageReload() {
+    try {
+      if (window.performance) {
+        const navEntries = performance.getEntriesByType && performance.getEntriesByType('navigation');
+        if (navEntries && navEntries.length > 0) {
+          return navEntries[0].type === 'reload';
+        }
+        if (performance.navigation) {
+          return performance.navigation.type === performance.navigation.TYPE_RELOAD;
+        }
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  function toggleCouponFilterPanel(show) {
+    const panel = document.getElementById('coupon-filter-panel');
+    if (!panel) return;
+    const isHidden = panel.classList.contains('hidden');
+    const shouldShow = (typeof show === 'boolean') ? show : isHidden;
+
+    if (shouldShow) {
+      panel.classList.remove('hidden');
+      try {
+        sessionStorage.setItem(FILTER_STORAGE_KEY, 'true');
+      } catch (e) {}
+    } else {
+      panel.classList.add('hidden');
+      try {
+        sessionStorage.removeItem(FILTER_STORAGE_KEY);
+      } catch (e) {}
+    }
+  }
+
+  function toggleCouponDeleteRangePanel(show) {
+    const panel = document.getElementById('coupon-delete-range-panel');
+    if (!panel) return;
+    const isHidden = panel.classList.contains('hidden');
+    const shouldShow = (typeof show === 'boolean') ? show : isHidden;
+
+    if (shouldShow) {
+      panel.classList.remove('hidden');
+    } else {
+      panel.classList.add('hidden');
+    }
+  }
+
+  async function deleteSingleCoupon(couponId, code) {
+    const confirmDelete = confirm(`Delete Coupon?\n\nAre you sure you want to delete coupon ${code}? This action will remove it from history.`);
+    if (!confirmDelete) return;
+
+    try {
+      const response = await fetch('/admin/delete_coupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coupon_id: couponId })
+      });
+
+      const resData = await response.json();
+      if (response.ok && resData.status === 'success') {
+        window.location.reload();
+      } else {
+        alert('Failed to delete coupon: ' + (resData.message || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Error deleting coupon. Please try again.');
+    }
+  }
+
+  async function deleteCouponsByDateRange() {
+    const startInput = document.getElementById('deleteStartDate') || document.getElementById('historyStartDate');
+    const endInput = document.getElementById('deleteEndDate') || document.getElementById('historyEndDate');
+    const startDate = startInput ? startInput.value.trim() : '';
+    const endDate = endInput ? endInput.value.trim() : '';
+
+    if (!startDate || !endDate) {
+      alert('Please select both From Date and To Date to delete coupons in a date range.');
+      return;
+    }
+
+    if (startDate > endDate) {
+      alert('From Date cannot be later than To Date.');
+      return;
+    }
+
+    const confirmDelete = confirm(`⚠️ DELETE COUPONS IN DATE RANGE?\n\nAre you sure you want to permanently delete generated coupons from ${startDate} to ${endDate}?\n\nThis action cannot be undone.`);
+    if (!confirmDelete) return;
+
+    try {
+      const response = await fetch('/admin/delete_coupons_by_date_range', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start_date: startDate, end_date: endDate, status: 'all' })
+      });
+
+      const resData = await response.json();
+      if (response.ok && resData.status === 'success') {
+        alert(resData.message || 'Coupons deleted successfully.');
+        window.location.reload();
+      } else {
+        alert('Failed to delete coupons: ' + (resData.message || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Error deleting coupons by date range. Please try again.');
+    }
+  }
+
+  function clearDateFilter() {
+    const startDateInput = document.getElementById('historyStartDate');
+    const endDateInput = document.getElementById('historyEndDate');
+    const statusSelect = document.getElementById('historyStatus');
+    const searchInput = document.getElementById('historySearch');
+
+    if (startDateInput) startDateInput.value = '';
+    if (endDateInput) endDateInput.value = '';
+    if (statusSelect) statusSelect.value = 'all';
+    if (searchInput) searchInput.value = '';
+
+    try {
+      sessionStorage.removeItem(FILTER_VALUES_KEY);
+    } catch (e) {}
+
+    const serverStartDate = startDateInput ? (startDateInput.getAttribute('data-server-date') || '') : '';
+    const serverEndDate = endDateInput ? (endDateInput.getAttribute('data-server-date') || '') : '';
+
+    // If server filtered by dates (e.g. today or custom range), navigate to all_dates=1 so all historical records are retrieved
+    if (serverStartDate || serverEndDate) {
+      try {
+        sessionStorage.setItem(FILTER_STORAGE_KEY, 'true');
+      } catch (e) {}
+      window.location.href = window.location.pathname + '?all_dates=1';
+      return;
+    }
+
+    filterCouponHistory();
+  }
+
+  function filterCouponHistory(forceSubmit = false) {
+    const input = document.getElementById('historySearch');
+    const startDateInput = document.getElementById('historyStartDate');
+    const endDateInput = document.getElementById('historyEndDate');
+    const startDateVal = startDateInput ? startDateInput.value.trim() : '';
+    const endDateVal = endDateInput ? endDateInput.value.trim() : '';
+    const statusVal = document.getElementById('historyStatus') ? document.getElementById('historyStatus').value : 'all';
+
+    const serverStartDate = startDateInput ? (startDateInput.getAttribute('data-server-date') || '') : '';
+    const serverEndDate = endDateInput ? (endDateInput.getAttribute('data-server-date') || '') : '';
+
+    const isApplyClicked = forceSubmit || (window.event && window.event.target && window.event.target.closest && window.event.target.closest('#apply-coupon-filter-btn'));
+
+    if (isApplyClicked && (startDateVal !== serverStartDate || endDateVal !== serverEndDate)) {
+      const params = new URLSearchParams();
+      if (startDateVal) params.set('start_date', startDateVal);
+      if (endDateVal) params.set('end_date', endDateVal);
+      if (!startDateVal && !endDateVal) params.set('all_dates', '1');
+      if (statusVal && statusVal !== 'all') params.set('status', statusVal);
+      if (input && input.value.trim()) params.set('search', input.value.trim());
+      try {
+        sessionStorage.setItem(FILTER_STORAGE_KEY, 'true');
+        sessionStorage.setItem(FILTER_VALUES_KEY, JSON.stringify({
+          startDate: startDateVal,
+          endDate: endDateVal,
+          status: statusVal,
+          search: input ? input.value : ''
+        }));
+      } catch (e) {}
+      window.location.href = window.location.pathname + '?' + params.toString();
+      return;
+    }
+
+    try {
+      if (startDateVal || endDateVal || statusVal !== 'all' || (input && input.value.trim())) {
+        sessionStorage.setItem(FILTER_VALUES_KEY, JSON.stringify({
+          startDate: startDateVal,
+          endDate: endDateVal,
+          status: statusVal,
+          search: input ? input.value : ''
+        }));
+      } else {
+        sessionStorage.removeItem(FILTER_VALUES_KEY);
+      }
+    } catch (e) {}
+
+    const rawFilter = input ? input.value.trim().toUpperCase() : '';
+    const cleanFilter = rawFilter.replace(/[\s\-\+]/g, '');
+    const table = document.getElementById('couponTableBody');
+    if (!table) return;
+    const tr = table.getElementsByTagName('tr');
+    let visibleCount = 0;
+
+    for (let i = 0; i < tr.length; i++) {
+      if (tr[i].id === 'emptyRow') continue;
+      const rowDate = tr[i].getAttribute('data-created-date') || '';
+      const rowStatus = tr[i].getAttribute('data-status') || '';
+      
+      // Date range filter check
+      let dateMatch = true;
+      if (startDateVal && rowDate && rowDate < startDateVal) dateMatch = false;
+      if (endDateVal && rowDate && rowDate > endDateVal) dateMatch = false;
+
+      // Status filter check
+      let statusMatch = (statusVal === 'all' || rowStatus === statusVal);
+
+      // Text search check
+      const tdCode = tr[i].getElementsByTagName('td')[0];
+      const tdPhone = tr[i].getElementsByTagName('td')[1];
+      const tdEmail = tr[i].getElementsByTagName('td')[5] || tr[i].getElementsByTagName('td')[4];
+
+      let textMatch = true;
+      if (rawFilter !== '') {
+        const txtCode = tdCode ? (tdCode.textContent || tdCode.innerText).trim().toUpperCase() : '';
+        const txtPhone = tdPhone ? (tdPhone.textContent || tdPhone.innerText).trim() : '';
+        const rawPhoneAttr = tr[i].getAttribute('data-phone') || '';
+        const cleanPhone = (txtPhone + ' ' + rawPhoneAttr).replace(/[\s\-\+]/g, '').toUpperCase();
+        const txtEmail = tdEmail ? (tdEmail.textContent || tdEmail.innerText).trim().toUpperCase() : '';
+
+        const codeMatch = txtCode.includes(rawFilter);
+        const emailMatch = txtEmail.includes(rawFilter);
+        const phoneMatch = cleanFilter !== '' && (txtPhone.toUpperCase().includes(rawFilter) || cleanPhone.includes(cleanFilter));
+
+        textMatch = codeMatch || emailMatch || phoneMatch;
+      }
+
+      if (dateMatch && statusMatch && textMatch) {
+        tr[i].style.display = '';
+        visibleCount++;
+      } else {
+        tr[i].style.display = 'none';
+      }
+    }
+
+    const countBadge = document.getElementById('coupon-count-badge');
+    if (countBadge) {
+      countBadge.textContent = `${visibleCount} Coupons`;
+    }
+  }
+
+  // Lifecycle & Persistence management:
+  // - Preserves expanded state and values on F5 / page reload
+  // - Resets to hidden when navigating to another page and returning
+  // - Handles back/forward cache (pageshow)
+  (function initCouponHistoryFilterState() {
+    try {
+      if (isPageReload()) {
+        if (sessionStorage.getItem(FILTER_STORAGE_KEY) === 'true') {
+          const panel = document.getElementById('coupon-filter-panel');
+          if (panel) panel.classList.remove('hidden');
+        }
+        const hasUrlParams = window.location.search && window.location.search.length > 1;
+        const savedFilters = sessionStorage.getItem(FILTER_VALUES_KEY);
+        if (savedFilters && hasUrlParams) {
+          try {
+            const parsed = JSON.parse(savedFilters);
+            if (parsed.startDate && document.getElementById('historyStartDate')) {
+              document.getElementById('historyStartDate').value = parsed.startDate;
+            }
+            if (parsed.endDate && document.getElementById('historyEndDate')) {
+              document.getElementById('historyEndDate').value = parsed.endDate;
+            }
+            if (parsed.status && document.getElementById('historyStatus')) {
+              document.getElementById('historyStatus').value = parsed.status;
+            }
+            if (parsed.search && document.getElementById('historySearch')) {
+              document.getElementById('historySearch').value = parsed.search;
+            }
+            filterCouponHistory();
+          } catch (err) {}
+        }
+      } else {
+        // New visit or return navigation: clear stored state so panel starts hidden
+        sessionStorage.removeItem(FILTER_STORAGE_KEY);
+        sessionStorage.removeItem(FILTER_VALUES_KEY);
+      }
+    } catch (e) {}
+
+    const filterPanel = document.getElementById('coupon-filter-panel');
+    if (filterPanel) {
+      filterPanel.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          filterCouponHistory(true);
+        }
+      });
+    }
+
+    // When clicking any link navigating away from this page, clear the stored filter panel state
+    document.addEventListener('click', (e) => {
+      const anchor = e.target.closest('a[href]');
+      if (anchor && anchor.href) {
+        const href = anchor.getAttribute('href') || '';
+        if (!href.startsWith('#') && !href.startsWith('javascript:')) {
+          try {
+            const targetUrl = new URL(anchor.href, window.location.origin);
+            if (targetUrl.pathname !== window.location.pathname) {
+              sessionStorage.removeItem(FILTER_STORAGE_KEY);
+              sessionStorage.removeItem(FILTER_VALUES_KEY);
+            }
+          } catch (err) {}
+        }
+      }
+    });
+
+    // Reset when restored via back/forward cache (bfcache)
+    window.addEventListener('pageshow', (event) => {
+      if (event.persisted) {
+        try {
+          sessionStorage.removeItem(FILTER_STORAGE_KEY);
+          sessionStorage.removeItem(FILTER_VALUES_KEY);
+        } catch (e) {}
+        const panel = document.getElementById('coupon-filter-panel');
+        if (panel) panel.classList.add('hidden');
+      }
+    });
+  })();
+</script>
+{% endblock %}

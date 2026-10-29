@@ -1,0 +1,171 @@
+{% extends "admin_base.html" %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-4">
+  <!-- Top Navigation Link (Matching Admin Booking pattern) -->
+  <div class="flex items-center justify-between mb-2">
+    <a href="{{ url_for('admin.coupon_management') }}" class="text-sm font-semibold text-amber-700 hover:text-amber-900 inline-flex items-center gap-1 transition-colors">
+      ← Back to Coupon History
+    </a>
+  </div>
+
+  <!-- Dedicated Coupon Generation Form Card -->
+  <div id="couponFormContainer" class="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden transition-all duration-300">
+    <div class="bg-gradient-to-r from-amber-500 to-amber-600 px-6 py-4 text-white flex items-center justify-between">
+      <div>
+        <h3 class="font-bold text-lg flex items-center gap-2">
+          <span>✨</span> Generate New Coupon
+        </h3>
+        <p class="text-xs text-amber-100 mt-0.5">Every generated coupon is strictly valid for single use.</p>
+      </div>
+      <a href="{{ url_for('admin.coupon_management') }}" class="text-white hover:text-amber-100 p-1 rounded-lg transition-colors text-lg font-bold" title="Close">
+        ✕
+      </a>
+    </div>
+
+    <form id="generateCouponPageForm" method="POST" action="{{ url_for('admin.admin_create_coupon') }}" class="p-6 space-y-4 max-w-2xl">
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Customer Phone Number <span class="text-red-500">*</span></label>
+        <div class="flex">
+          <span class="inline-flex items-center px-3 border border-r-0 rounded-l bg-gray-100 text-gray-700 text-sm font-medium">+91</span>
+          <input type="tel" id="coupon_phone" name="phone" required pattern="[0-9]{10}" maxlength="10" placeholder="10-digit phone number"
+            class="border border-gray-300 rounded-r p-2.5 w-full text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none font-mono">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Customer Email <span class="text-red-500">*</span></label>
+        <input type="email" id="coupon_email" name="email" required placeholder="customer@gmail.com"
+          pattern="[a-zA-Z0-9._%+-]+@[gG][mM][aA][iI][lL]\.[cC][oO][mM]"
+          title="Please enter a valid Gmail address (ending in @gmail.com)"
+          class="border border-gray-300 rounded p-2.5 w-full text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none">
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Group Size <span class="text-red-500">*</span></label>
+        <input type="number" id="coupon_group_size" name="group_size" required min="1" step="1" placeholder="e.g. 6"
+          class="border border-gray-300 rounded p-2.5 w-full text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none font-mono">
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Applicable Days <span class="text-red-500">*</span></label>
+        <div class="flex flex-wrap items-center gap-4 p-2.5 border border-gray-300 rounded bg-gray-50">
+          <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+            <input type="checkbox" name="valid_day_types" value="weekday" class="w-4 h-4 text-amber-600 rounded border-gray-300 focus:ring-amber-500">
+            <span>Weekday (Monday–Friday)</span>
+          </label>
+          <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+            <input type="checkbox" name="valid_day_types" value="weekend" class="w-4 h-4 text-amber-600 rounded border-gray-300 focus:ring-amber-500">
+            <span>Weekend (Saturday–Sunday)</span>
+          </label>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">Select the day types for which this coupon can be redeemed.</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">Amount Per Head Discount (₹) <span class="text-red-500">*</span></label>
+        <div class="flex">
+          <span class="inline-flex items-center px-3 border border-r-0 rounded-l bg-gray-100 text-gray-700 text-sm font-medium">₹</span>
+          <input type="number" id="coupon_discount_value" name="discount_value" required min="1" step="any" placeholder="e.g. 100"
+            class="border border-gray-300 rounded-r p-2.5 w-full text-sm focus:ring-2 focus:ring-amber-500 focus:outline-none font-mono">
+        </div>
+        <input type="hidden" id="coupon_discount_type" name="discount_type" value="per_head">
+        <p class="text-xs text-gray-500 mt-1">This amount will be deducted per head from the booking price.</p>
+      </div>
+
+      <div id="couponResult" class="hidden p-3.5 rounded-lg text-sm font-semibold border"></div>
+
+      <div class="pt-2 flex items-center gap-3">
+        <button type="submit" id="submitCouponBtn" class="py-2.5 px-5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold shadow transition-colors flex items-center justify-center gap-2 cursor-pointer">
+          <span>Generate & Send Coupon</span>
+        </button>
+        <a href="{{ url_for('admin.coupon_management') }}" class="py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors cursor-pointer">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('generateCouponPageForm');
+    const submitBtn = document.getElementById('submitCouponBtn');
+    const resultDiv = document.getElementById('couponResult');
+
+    if (form) {
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const emailVal = (formData.get('email') || '').trim().toLowerCase();
+
+        if (!emailVal.endsWith('@gmail.com')) {
+          resultDiv.className = 'p-3.5 rounded-lg text-sm font-semibold border bg-red-50 text-red-800 border-red-200';
+          resultDiv.innerHTML = '❌ Please enter a valid Gmail address (ending in @gmail.com).';
+          resultDiv.classList.remove('hidden');
+          document.getElementById('coupon_email').focus();
+          return;
+        }
+
+        const validDayTypes = Array.from(form.querySelectorAll('input[name="valid_day_types"]:checked')).map(cb => cb.value);
+        if (validDayTypes.length === 0) {
+          resultDiv.className = 'p-3.5 rounded-lg text-sm font-semibold border bg-red-50 text-red-800 border-red-200';
+          resultDiv.innerHTML = '❌ Please select at least one applicable day type (Weekday or Weekend).';
+          resultDiv.classList.remove('hidden');
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.7';
+        submitBtn.innerText = 'Generating...';
+        resultDiv.classList.add('hidden');
+
+        const data = {
+          phone: formData.get('phone'),
+          email: formData.get('email'),
+          group_size: formData.get('group_size'),
+          valid_day_types: validDayTypes,
+          discount_type: formData.get('discount_type') || 'per_head',
+          discount_value: formData.get('discount_value')
+        };
+
+        try {
+          const response = await fetch('/admin/generate_coupon', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+
+          const resData = await response.json();
+
+          if (response.ok && resData.status === 'success') {
+            resultDiv.className = 'p-3.5 rounded-lg text-sm font-semibold border bg-emerald-50 text-emerald-800 border-emerald-200';
+            let discountStr = `₹${resData.discount_value}/head`;
+            let emailNotice = resData.email_sent ? '<br>📧 Confirmation email sent to customer!' : '';
+            resultDiv.innerHTML = `✅ Coupon Code: <strong class="font-mono text-base">${resData.code}</strong><br>Discount: ${discountStr}${emailNotice}`;
+            resultDiv.classList.remove('hidden');
+
+            form.reset();
+
+            // Redirect back to coupon history page
+            window.location.href = "{{ url_for('admin.coupon_management') }}";
+          } else {
+            resultDiv.className = 'p-3.5 rounded-lg text-sm font-semibold border bg-red-50 text-red-800 border-red-200';
+            resultDiv.innerText = `❌ ${resData.message || 'Failed to generate coupon'}`;
+            resultDiv.classList.remove('hidden');
+          }
+        } catch (err) {
+          resultDiv.className = 'p-3.5 rounded-lg text-sm font-semibold border bg-red-50 text-red-800 border-red-200';
+          resultDiv.innerText = '❌ Error generating coupon. Please try again.';
+          resultDiv.classList.remove('hidden');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.style.opacity = '1';
+          submitBtn.innerText = 'Generate & Send Coupon';
+        }
+      };
+    }
+  });
+</script>
+{% endblock %}

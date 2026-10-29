@@ -1,0 +1,278 @@
+{% extends "admin_base.html" %}
+{% block content %}
+<div class="max-w-5xl mx-auto">
+  <div class="flex flex-col md:flex-row md:items-center justify-between mb-6">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-800">👑 Admin Management</h1>
+      <p class="text-sm text-gray-500 mt-1">Manage Admin and Subadmin staff accounts with role-based controls</p>
+    </div>
+  </div>
+
+  <!-- Create New Account Card -->
+  <div class="bg-white shadow-md rounded-xl p-6 mb-8 border border-gray-100">
+    <h2 class="text-xl font-semibold mb-4 border-b pb-3 text-gray-800 flex items-center gap-2">
+      <span>➕ Create New Account</span>
+    </h2>
+    
+    <form method="POST" class="space-y-4">
+      <input type="hidden" name="action" value="create">
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Role Selection -->
+        <div>
+          <label for="role" class="block text-sm font-medium text-gray-700 mb-1">
+            Account Role <span class="text-red-500">*</span>
+          </label>
+          <select 
+            id="role" 
+            name="role" 
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium bg-white"
+            required>
+            <option value="subadmin" {% if selected_role == 'subadmin' %}selected{% endif %}>👥 Subadmin (Limited Operations Access)</option>
+            {% if is_supreme %}
+            <option value="admin" {% if selected_role == 'admin' %}selected{% endif %}>👑 Admin (Full Management Access)</option>
+            {% endif %}
+          </select>
+          {% if not is_supreme %}
+          <p class="text-xs text-gray-500 mt-1">Note: Only Supreme Admin can create Admin-level accounts.</p>
+          {% endif %}
+        </div>
+
+        <!-- Name -->
+        <div>
+          <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+          <input 
+            type="text" 
+            id="name" 
+            name="name" 
+            placeholder="e.g. John Doe"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Email -->
+        <div>
+          <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
+            Email Address <span class="text-red-500">*</span>
+          </label>
+          <input 
+            type="email" 
+            id="email" 
+            name="email" 
+            placeholder="user@example.com"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required>
+        </div>
+        
+        <!-- Phone -->
+        <div>
+          <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+          <input 
+            type="text" 
+            id="phone" 
+            name="phone" 
+            placeholder="e.g. 9876543210"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Password -->
+        <div>
+          <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
+            Password <span class="text-red-500">*</span>
+          </label>
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            placeholder="Minimum 8 characters"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required>
+        </div>
+
+        <!-- Confirm Password -->
+        <div>
+          <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+          <input 
+            type="password" 
+            id="confirm_password" 
+            name="confirm_password" 
+            placeholder="Re-enter password"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+      </div>
+      
+      <div class="pt-2">
+        <button 
+          type="submit" 
+          class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-semibold transition-colors shadow-sm flex items-center gap-2">
+          <span>✅ Create Account</span>
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Accounts Directory Card -->
+  <div class="bg-white shadow-md rounded-xl p-6 border border-gray-100">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 border-b pb-3">
+      <h2 class="text-xl font-semibold text-gray-800">
+        📋 {% if is_supreme %}Staff & User Accounts{% else %}Subadmin Accounts{% endif %} 
+        <span class="text-gray-500 text-sm font-normal ml-2">({{ users|length }} total)</span>
+      </h2>
+
+      {% if is_supreme %}
+      <!-- Role Filter Tabs for Supreme Admin -->
+      <div class="flex items-center gap-1 bg-gray-100 p-1 rounded-lg text-sm font-medium">
+        <button 
+          type="button" 
+          onclick="filterRole('all')" 
+          id="tab-all"
+          class="px-3 py-1.5 rounded-md transition-colors bg-white shadow-sm text-blue-600 font-bold">
+          All ({{ users|length }})
+        </button>
+        <button 
+          type="button" 
+          onclick="filterRole('subadmin')" 
+          id="tab-subadmin"
+          class="px-3 py-1.5 rounded-md transition-colors text-gray-600 hover:text-gray-900">
+          Subadmins ({{ subadmins|length }})
+        </button>
+        <button 
+          type="button" 
+          onclick="filterRole('admin')" 
+          id="tab-admin"
+          class="px-3 py-1.5 rounded-md transition-colors text-gray-600 hover:text-gray-900">
+          Admins ({{ admins|length }})
+        </button>
+      </div>
+      {% endif %}
+    </div>
+    
+    {% if users %}
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-50 border-b">
+            <tr>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Phone</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Role</th>
+              <th class="px-4 py-3 text-center text-sm font-semibold text-gray-700">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y" id="users-table-body">
+            {% for u in users %}
+            <tr class="user-row hover:bg-gray-50 transition-colors" data-role="{{ u.role }}">
+              <td class="px-4 py-3 text-sm text-gray-800 font-medium">
+                {{ u.name or 'Staff User' }}
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-600">
+                {{ u.email }}
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-600">
+                {{ u.phone or '-' }}
+              </td>
+              <td class="px-4 py-3 text-sm">
+                {% if is_supreme and u.can_delete %}
+                <form method="POST" class="inline-flex items-center" onchange="this.submit()">
+                  <input type="hidden" name="action" value="update_role">
+                  <input type="hidden" name="user_id" value="{{ u._id }}">
+                  <select name="new_role" title="Change Account Role" class="text-xs font-bold rounded-full px-2.5 py-1 border border-gray-300 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-sm">
+                    <option value="subadmin" {% if u.role == 'subadmin' %}selected{% endif %}>👥 SUBADMIN</option>
+                    <option value="admin" {% if u.role == 'admin' %}selected{% endif %}>👑 ADMIN</option>
+                  </select>
+                </form>
+                {% else %}
+                {% if u.role == 'admin' %}
+                <span class="bg-purple-100 text-purple-800 border border-purple-200 px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1">
+                  👑 ADMIN
+                </span>
+                {% else %}
+                <span class="bg-blue-100 text-blue-800 border border-blue-200 px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1">
+                  👥 SUBADMIN
+                </span>
+                {% endif %}
+                {% endif %}
+              </td>
+              <td class="px-4 py-3 text-center">
+                {% if u.can_delete %}
+                <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this {{ u.role }} account? This action cannot be undone.');">
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="user_id" value="{{ u._id }}">
+                  <button 
+                    type="submit" 
+                    class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors">
+                    🗑️ Delete
+                  </button>
+                </form>
+                {% else %}
+                <span class="text-xs text-gray-400 italic">Protected</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+        <p class="text-blue-800 text-sm">
+          <span class="font-semibold">No staff or subadmin accounts found.</span> Use the form above to create an account!
+        </p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Information Box -->
+  <div class="mt-8 bg-amber-50 border border-amber-200 rounded-xl p-5">
+    <h3 class="font-bold text-amber-900 mb-2 flex items-center gap-2">
+      <span>ℹ️ About User Roles & Permissions</span>
+    </h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-amber-800 mt-2">
+      <div class="bg-white/60 p-3 rounded-lg border border-amber-200/60">
+        <h4 class="font-bold text-blue-900 mb-1">👥 Subadmin Permissions:</h4>
+        <ul class="space-y-1 text-xs text-amber-900">
+          <li>✓ Access to Today's & Tomorrow's bookings only</li>
+          <li>✓ View raft allocations & occupancy status</li>
+          <li>✗ Restricted from Settings, Calendar, and Coupon management</li>
+        </ul>
+      </div>
+      <div class="bg-white/60 p-3 rounded-lg border border-amber-200/60">
+        <h4 class="font-bold text-purple-900 mb-1">👑 Admin Permissions:</h4>
+        <ul class="space-y-1 text-xs text-amber-900">
+          <li>✓ Full access to all bookings, calendar, & occupancy dates</li>
+          <li>✓ Access to Coupon Generation & User management</li>
+          <li>✓ Supreme Admin has exclusive access to System Settings & Admin account management</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function filterRole(role) {
+    const rows = document.querySelectorAll('.user-row');
+    rows.forEach(row => {
+      if (role === 'all' || row.dataset.role === role) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    // Update active tab style
+    ['all', 'subadmin', 'admin'].forEach(r => {
+      const tab = document.getElementById('tab-' + r);
+      if (tab) {
+        if (r === role) {
+          tab.className = 'px-3 py-1.5 rounded-md transition-colors bg-white shadow-sm text-blue-600 font-bold';
+        } else {
+          tab.className = 'px-3 py-1.5 rounded-md transition-colors text-gray-600 hover:text-gray-900';
+        }
+      }
+    });
+  }
+</script>
+{% endblock %}

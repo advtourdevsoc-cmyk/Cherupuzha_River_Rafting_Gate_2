@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-[70vh] py-10">
+  <div class="relative max-w-md w-full bg-white/80 backdrop-blur-xl shadow-2xl rounded-3xl p-8 text-center border border-white/50 overflow-hidden">
+    <!-- Background element -->
+    <div class="absolute inset-0 z-[-1] bg-gradient-to-br from-teal-50 to-emerald-50 opacity-100"></div>
+    <div class="absolute -top-24 -right-24 w-48 h-48 bg-teal-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
+    <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-emerald-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
+    
+    <!-- Success Icon -->
+    <div class="w-24 h-24 mx-auto bg-gradient-to-tr from-emerald-400 to-teal-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-400/40 mb-6 animate-[bounce_1s_ease-in-out]">
+      <i class="bi bi-check-lg text-white text-5xl drop-shadow-md"></i>
+    </div>
+    
+    <h2 class="text-3xl font-extrabold text-gray-800 mb-3 tracking-tight">Payment Successful!</h2>
+    <p class="text-gray-600 mb-8 font-medium leading-relaxed">Your rafting adventure is confirmed! We've received your payment and secured your booking.</p>
+    
+    <!-- Details Card -->
+    <div class="bg-white rounded-2xl p-4 mb-8 shadow-sm border border-gray-100 relative overflow-hidden group">
+      <div class="absolute top-0 left-0 w-1 h-full bg-emerald-400"></div>
+      <div class="flex justify-between items-center py-2 border-b border-gray-50">
+        <span class="text-sm text-gray-500 font-medium">Status</span>
+        <span class="text-sm font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full flex items-center gap-1">
+          <i class="bi bi-shield-check"></i> Confirmed
+        </span>
+      </div>
+      <div class="flex justify-between items-center py-2">
+        <span class="text-sm text-gray-500 font-medium">Next Steps</span>
+        <span class="text-sm font-semibold text-gray-800">Check your Email</span>
+      </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="flex flex-col space-y-3">
+      <a href="{{ url_for('booking.track_booking') }}" class="relative inline-flex flex-col items-center justify-center w-full py-3.5 px-4 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-700 hover:to-cyan-700 text-white rounded-xl font-semibold transition-all duration-300 shadow-md shadow-teal-500/30 tracking-wide hover:-translate-y-0.5 overflow-hidden group">
+        <span class="absolute w-0 h-0 transition-all duration-500 ease-out bg-white rounded-full group-hover:w-56 group-hover:h-56 opacity-10"></span>
+        <div class="flex items-center gap-2">
+          <span>Track Your Booking</span>
+          <i class="bi bi-arrow-right-short text-xl"></i>
+        </div>
+      </a>
+      <a href="{{ url_for('booking.home') }}" class="w-full py-3 px-4 bg-white hover:bg-gray-50 text-teal-700 border-2 border-teal-100 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2">
+        <i class="bi bi-house-door"></i> Back to Home
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Canvas Confetti -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    var duration = 3000;
+    var end = Date.now() + duration;
+
+    (function frame() {
+      // launch a few confetti from the left edge
+      confetti({
+        particleCount: 7,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors: ['#10b981', '#14b8a6', '#06b6d4', '#f59e0b']
+      });
+      // and launch a few from the right edge
+      confetti({
+        particleCount: 7,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors: ['#10b981', '#14b8a6', '#06b6d4', '#f59e0b']
+      });
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    }());
+  });
+</script>
+
+<style>
+  @keyframes blob {
+    0% { transform: translate(0px, 0px) scale(1); }
+    33% { transform: translate(30px, -50px) scale(1.1); }
+    66% { transform: translate(-20px, 20px) scale(0.9); }
+    100% { transform: translate(0px, 0px) scale(1); }
+  }
+  .animate-blob {
+    animation: blob 7s infinite;
+  }
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+</style>
+{% endblock %}

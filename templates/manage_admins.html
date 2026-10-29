@@ -1,0 +1,147 @@
+{% extends "admin_base.html" %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <h1 class="text-3xl font-bold mb-6">👑 Admin Management</h1>
+
+  <!-- Create New Admin Section -->
+  <div class="bg-white shadow rounded-lg p-6 mb-8">
+    <h2 class="text-xl font-semibold mb-4 border-b pb-3">➕ Add New Admin</h2>
+    
+    <form method="POST" class="space-y-4">
+      <input type="hidden" name="action" value="create">
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Admin Name</label>
+          <input 
+            type="text" 
+            id="name" 
+            name="name" 
+            placeholder="e.g. Admin One"
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        
+        <div>
+          <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email Address <span class="text-red-500">*</span></label>
+          <input 
+            type="email" 
+            id="email" 
+            name="email" 
+            placeholder="admin@example.com"
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password <span class="text-red-500">*</span></label>
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            placeholder="Minimum 8 characters"
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required>
+        </div>
+
+        <div>
+          <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password <span class="text-red-500">*</span></label>
+          <input 
+            type="password" 
+            id="confirm_password" 
+            name="confirm_password" 
+            placeholder="Re-enter password"
+            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required>
+        </div>
+      </div>
+      
+      <div>
+        <button 
+          type="submit" 
+          class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-medium transition-colors">
+          ✅ Create Admin
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Current Admins Section -->
+  <div class="bg-white shadow rounded-lg p-6">
+    <h2 class="text-xl font-semibold mb-4 border-b pb-3">
+      📋 Existing Admins 
+      <span class="text-gray-500 text-sm font-normal ml-2">({{ admins|length }} total)</span>
+    </h2>
+    
+    {% if admins %}
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-100 border-b">
+            <tr>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Admin Name</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Role</th>
+              <th class="px-4 py-3 text-center text-sm font-semibold text-gray-700">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            {% for admin in admins %}
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="px-4 py-3 text-sm text-gray-800 font-medium">
+                {{ admin.name or 'Admin' }}
+              </td>
+              <td class="px-4 py-3 text-sm text-gray-600">
+                {{ admin.email }}
+              </td>
+              <td class="px-4 py-3 text-sm">
+                <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">
+                  ADMIN
+                </span>
+              </td>
+              <td class="px-4 py-3 text-center">
+                <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to remove this Admin account? This action cannot be undone.');">
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="admin_id" value="{{ admin._id }}">
+                  <button 
+                    type="submit" 
+                    class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors">
+                    🗑️ Remove
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="bg-blue-50 border border-blue-200 rounded p-4 text-center">
+        <p class="text-blue-800 text-sm">
+          <span class="font-medium">No normal admins found.</span> Use the form above to add a new Admin!
+        </p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Information Box -->
+  <div class="mt-8 bg-amber-50 border border-amber-200 rounded-lg p-4">
+    <h3 class="font-bold text-amber-800 mb-2">ℹ️ About Admin Management</h3>
+    <ul class="text-sm text-amber-700 space-y-1">
+      <li>✓ Supreme Admin has full administrative control and can add or remove normal Admins.</li>
+      <li>✓ Newly created Admins receive standard Admin permissions (`role = admin`).</li>
+      <li>✓ Normal Admins cannot access Admin Management or manage other Admin accounts.</li>
+      <li>✓ Supreme Admin account is protected and cannot be removed.</li>
+    </ul>
+  </div>
+</div>
+
+<style>
+  input:invalid {
+    border-color: #ef4444;
+  }
+  input:valid {
+    border-color: #10b981;
+  }
+</style>
+{% endblock %}

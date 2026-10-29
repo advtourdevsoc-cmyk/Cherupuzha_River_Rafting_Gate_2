@@ -1,0 +1,794 @@
+{% extends "admin_base.html" %}
+{% block content %}
+<style>
+  /* Page background and settings container styles for wider screens */
+  body {
+    background-color: #f8f9fa;
+  }
+
+  .settings-container {
+    max-width: 900px;
+    margin: 40px auto;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    padding: 30px;
+  }
+
+  @media (max-width: 576px) {
+    .settings-container {
+      padding: 20px;
+      margin: 20px;
+    }
+  }
+</style>
+
+<div class="container mt-5 d-flex justify-content-center">
+  <div class="settings-container w-100" style="max-width: 900px;">
+    <h2 class="text-center fw-bold text-primary mb-4">⚙️ System Settings</h2>
+
+    {% if message %}
+    <div id="success-message" class="mb-4 p-3 rounded bg-green-100 text-green-800 border border-green-300">
+      {{ message }}
+    </div>
+    {% endif %}
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div id="flash-message"
+      class="mb-4 p-3 rounded {% if category == 'success' %}bg-green-100 text-green-800 border border-green-300{% elif category == 'error' %}bg-red-100 text-red-800 border border-red-300{% else %}bg-blue-100 text-blue-800 border border-blue-300{% endif %}">
+      {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <form id="settings-form" method="POST" class="grid grid-cols-1 gap-6">
+      <div>
+        <label class="block text-gray-700 font-semibold mb-2">Booking Date Range</label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Booking Start Date</label>
+            <input type="date" id="start_date" name="start_date"
+              value="{{ settings.start_date if settings.start_date else '' }}"
+              class="w-full border border-gray-300 rounded-lg p-2 focus:ring focus:ring-blue-300" required>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-600 mb-1">Booking End Date</label>
+            <input type="date" id="end_date" name="end_date"
+              value="{{ settings.end_date if settings.end_date else '' }}"
+              class="w-full border border-gray-300 rounded-lg p-2 focus:ring focus:ring-blue-300" required>
+          </div>
+        </div>
+        <div id="days-display" class="mt-2 text-sm text-gray-600">
+          <span id="calculated-days">-</span> booking days
+        </div>
+        <div id="date-error" class="mt-2 text-sm text-red-600 hidden"></div>
+        <input type="hidden" id="days" name="days" value="{{ settings.days if settings.days else '' }}">
+      </div>
+
+      <div>
+        <label class="block text-gray-700 font-semibold mb-2">Rafts per Slot</label>
+        <input type="number" name="rafts_per_slot" value="{{ settings.rafts_per_slot }}" min="1"
+          class="w-full border border-gray-300 rounded-lg p-2 focus:ring focus:ring-blue-300" required>
+      </div>
+
+      <div>
+        <label class="block text-gray-700 font-semibold mb-2">Capacity per Raft</label>
+        <input type="number" name="capacity" value="{{ settings.capacity }}" min="1"
+          class="w-full border border-gray-300 rounded-lg p-2 focus:ring focus:ring-blue-300" required>
+      </div>
+
+      <div>
+        <label class="block text-gray-700 font-semibold mb-2">⏰ Time Slots (comma separated - start times only)</label>
+        <textarea name="time_slots" rows="2"
+          class="w-full border border-gray-300 rounded-lg p-2 focus:ring focus:ring-blue-300"
+          placeholder="7:00am, 10:00am, 1:00pm, 3:30pm" required>{{ ', '.join(settings.time_slots) }}</textarea>
+        <p class="text-sm text-gray-500 mt-1">✅ Example: 7:00am, 10:00am, 1:00pm, 3:30pm</p>
+      </div>
+
+      <!-- Amount Settings Section -->
+      <div class="border-t pt-6 mt-6">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">💰 Amount Settings</h3>
+        <p class="text-sm text-gray-600 mb-4">Set the per-person amount for bookings based on the day of week.</p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Weekday Amount(Per Person)</label>
+            <div class="flex items-center mb-2">
+              <span class="text-gray-700 mr-2">₹</span>
+              <input type="number" name="weekday_amount" id="weekday_amount"
+                value="{{ settings.weekday_amount if settings.weekday_amount else '' }}" placeholder="0.00" step="0.01"
+                min="0" class="flex-1 border border-gray-300 rounded-lg p-2 focus:ring focus:ring-blue-300">
+            </div>
+            <div class="flex items-center mb-2">
+              <label class="text-xs text-gray-700 mr-2">Advance % (Mon-Fri):</label>
+              <input type="number" name="weekday_advance_percent" id="weekday_advance_percent"
+                value="{{ settings.weekday_advance_percent if settings.weekday_advance_percent else '25' }}" min="0"
+                max="100" step="1" class="w-20 border border-gray-300 rounded-lg p-2 focus:ring focus:ring-blue-300">
+              <span class="text-xs text-gray-500 ml-2">Default: 25%</span>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">Applied to Mon, Tue, Wed, Thu, Fri bookings</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Weekend Amount(Per Person)</label>
+            <div class="flex items-center mb-2">
+              <span class="text-gray-700 mr-2">₹</span>
+              <input type="number" name="saturday_amount" id="saturday_amount"
+                value="{{ settings.saturday_amount if settings.saturday_amount else '' }}" placeholder="0.00"
+                step="0.01" min="0" class="flex-1 border border-gray-300 rounded-lg p-2 focus:ring focus:ring-blue-300">
+            </div>
+            <div class="flex items-center mb-2">
+              <label class="text-xs text-gray-700 mr-2">Advance % (Sat-Sun):</label>
+              <input type="number" name="saturday_advance_percent" id="saturday_advance_percent"
+                value="{{ settings.saturday_advance_percent if settings.saturday_advance_percent else '35' }}" min="0"
+                max="100" step="1" class="w-20 border border-gray-300 rounded-lg p-2 focus:ring focus:ring-blue-300">
+              <span class="text-xs text-gray-500 ml-2">Default: 35%</span>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">Applied to Saturday and Sunday bookings</p>
+          </div>
+        </div>
+
+        <!-- Platform Fee Section -->
+        <div class="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+          <label class="block text-sm font-medium text-gray-700 mb-3">Platform Fee (%)</label>
+          <div class="flex items-center">
+            <input type="number" name="platform_fee" id="platform_fee"
+              value="{{ settings.platform_fee if settings.platform_fee is not none else '0' }}" placeholder="0.000"
+              step="0.001" min="0" max="100"
+              class="flex-1 border border-gray-300 rounded-lg p-2 focus:ring focus:ring-blue-300">
+            <span class="text-gray-700 ml-2 font-semibold">%</span>
+          </div>
+          <p class="text-xs text-gray-500 mt-2">Percentage fee added to the subtotal amount for each booking (e.g. enter
+            5 for 5%)</p>
+        </div>
+
+        <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p class="text-sm text-blue-900 mb-2">
+            <strong>Info:</strong> <br>
+            <span>Subtotal = Group Size × Applicable Amount</span><br>
+            <span>Advance Payment = Subtotal × Advance %</span><br>
+            <span>Platform Fee Amount = Advance Payment × (Platform Fee % / 100)</span><br>
+            <span>Total amount for a booking = Subtotal + Platform Fee Amount</span>
+          </p>
+          <p class="text-xs text-blue-800 mt-2">
+            Example: Group of 4 on Friday with ₹25/person, 5% Platform Fee, and 25% advance:<br>
+            Subtotal = 4 × ₹25 = ₹100<br>
+            Advance Payment (25%) = ₹100 × 25% = ₹25<br>
+            Platform Fee (5%) = ₹25 × 5% = ₹1.25<br>
+            Total = ₹100 + ₹1.25 = ₹101.25<br>
+            <br>
+            For Saturday and Sunday with ₹40/person, 5% Platform Fee, and 35% advance:<br>
+            Subtotal = 4 × ₹40 = ₹160<br>
+            Advance Payment (35%) = ₹160 × 35% = ₹56<br>
+            Platform Fee (5%) = ₹56 × 5% = ₹2.80<br>
+            Total = ₹160 + ₹2.80 = ₹162.80<br>
+            <br>
+            <strong>Weekday Amount</strong> applies to Monday to Friday bookings.<br>
+            <strong>Weekend Amount</strong> applies to Saturday and Sunday bookings.
+          </p>
+        </div>
+      </div>
+
+      <!-- Toggle for More Settings (Immediate Slot Creation) (Supreme Admin only) -->
+      {% if current_user.is_supreme_admin() %}
+      <div class="pt-4 border-t border-gray-200">
+        <div class="flex items-center justify-center">
+          <button type="button" id="toggle-more-settings-btn" onclick="toggleMoreSettings()"
+            class="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 active:bg-gray-100 border border-gray-300 rounded-lg shadow-sm hover:border-gray-400 transition-all cursor-pointer">
+            <span class="text-amber-500 text-base">⚡</span>
+            <span id="more-settings-text">Show More Settings</span>
+            <span id="more-settings-arrow" class="text-xs text-gray-500 font-bold ml-1 transition-transform">▼</span>
+          </button>
+        </div>
+
+        <!-- Collapsible Immediate Slot Creation (Hidden by default) -->
+        <div id="more-settings-container" class="hidden mt-6 pt-6 border-t border-gray-200">
+          <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2 mb-2">
+            <span class="text-amber-500">⚡</span> Immediate Slot Creation
+          </h3>
+          <p class="text-sm text-gray-600 mb-6">
+            Filter a date and enter a slot name to immediately create an extra slot for that specific date. Number of
+            rafts and capacity are automatically taken from the settings above.
+          </p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end mb-4">
+            <div class="sm:col-span-4">
+              <label class="block text-sm font-semibold text-gray-700 mb-1.5">Filter Date</label>
+              <input type="date" id="imm_date"
+                class="w-full border border-gray-300 rounded-lg p-2.5 bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+            <div class="sm:col-span-5">
+              <label class="block text-sm font-semibold text-gray-700 mb-1.5">Time Slot</label>
+              <input type="text" id="imm_slot" placeholder="Eg:4:45 PM"
+                class="w-full border border-gray-300 rounded-lg p-2.5 bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium">
+            </div>
+            <div class="sm:col-span-3">
+              <button type="button" id="imm-create-btn" onclick="createImmediateSlot()"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg shadow-sm transition duration-150 flex items-center justify-center gap-2">
+                <span class="text-amber-300">⚡</span>
+                <span>Create Slot</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="imm-slot-result" class="mb-4 hidden"></div>
+
+          <div class="mt-6 mb-4">
+            <div class="flex items-center justify-between mb-2.5">
+              <div class="text-sm font-medium text-gray-800">
+                Active Slots for <span id="imm-active-date" class="text-gray-900">-</span>:
+              </div>
+              <div id="imm-slot-count" class="text-xs text-gray-500 font-normal">
+                (0 slots)
+              </div>
+            </div>
+            <div id="imm-slots-pills" class="flex flex-wrap gap-2.5 items-center min-h-[38px]">
+              <span class="text-xs text-gray-400 italic">Select a date to view active slots</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <button type="submit" id="save-btn"
+        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow flex items-center justify-center gap-2">
+        <span>💾</span> Save Settings
+      </button>
+    </form>
+
+    <!-- Delete Records by Date Range (Supreme Admin only) -->
+    {% if current_user.is_supreme_admin() %}
+    <div class="mt-8 pt-6 border-t border-gray-300">
+      <h3 class="text-xl font-semibold mb-4 text-red-700">🗑️ Delete Records by Date Range</h3>
+      <p class="text-sm text-gray-600 mb-4">Warning: This action will permanently delete all booking records for dates
+        in the selected range. This cannot be undone.</p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+        <div>
+          <label class="text-sm font-medium text-gray-700">From Date</label>
+          <input type="date" id="del_from" class="w-full border border-gray-300 rounded-lg p-2">
+        </div>
+        <div>
+          <label class="text-sm font-medium text-gray-700">To Date</label>
+          <input type="date" id="del_to" class="w-full border border-gray-300 rounded-lg p-2">
+        </div>
+        <div>
+          <label class="text-sm font-medium text-gray-700">Status Filter</label>
+          <select id="del_status" class="w-full border border-gray-300 rounded-lg p-2">
+            <option value="all">All Statuses</option>
+            <option value="Confirmed">✅ Confirmed</option>
+            <option value="Visited">🔍 Visited</option>
+            <option value="Pending">⏳ Pending</option>
+            <option value="Cancelled">❌ Cancelled</option>
+          </select>
+        </div>
+        <div>
+          <button id="delete-range-btn"
+            class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg w-full"
+            onclick="openDeleteModal()">🗑️ Delete Records</button>
+        </div>
+      </div>
+
+      <p class="text-sm text-gray-500 mt-3">Rules: From and To dates are required. Deletions are limited to the system
+        booking window.</p>
+
+      <div id="delete-range-result" class="mt-4 hidden"></div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="delete-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black bg-opacity-50">
+      <div class="bg-white rounded-lg p-6 w-11/12 sm:w-2/3 lg:w-1/3">
+        <h4 class="text-lg font-semibold text-red-700 mb-4">Confirm Deletion</h4>
+        <p class="text-sm text-gray-700 mb-4">You are about to permanently delete <span id="modal-status"
+            class="font-bold"></span> booking records between <span id="modal-from" class="font-medium"></span> and
+          <span id="modal-to" class="font-medium"></span>.
+        </p>
+        <p class="text-sm text-red-600 mb-4">This action is irreversible. Please confirm to proceed.</p>
+        <div class="flex justify-end gap-3">
+          <button class="px-4 py-2 rounded border" onclick="closeDeleteModal()">Cancel</button>
+          <button id="confirm-delete-range" class="px-4 py-2 rounded bg-red-600 text-white"
+            onclick="confirmDeleteRange()">Yes, Delete</button>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <script>
+    // Calculate days from date range
+    function calculateDays() {
+      const startDateInput = document.getElementById('start_date');
+      const endDateInput = document.getElementById('end_date');
+      const daysDisplay = document.getElementById('calculated-days');
+      const daysHidden = document.getElementById('days');
+      const errorDiv = document.getElementById('date-error');
+      const saveBtn = document.getElementById('save-btn');
+
+      const startDate = startDateInput.value;
+      const endDate = endDateInput.value;
+
+      // Clear previous errors
+      errorDiv.classList.add('hidden');
+      errorDiv.textContent = '';
+
+      if (!startDate || !endDate) {
+        daysDisplay.textContent = '-';
+        daysHidden.value = '';
+        return;
+      }
+
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      // Validate date range
+      if (end < start) {
+        errorDiv.textContent = 'End date must be greater than or equal to start date.';
+        errorDiv.classList.remove('hidden');
+        daysDisplay.textContent = '-';
+        daysHidden.value = '';
+        saveBtn.disabled = true;
+        return;
+      }
+
+      // Calculate days: end_date - start_date + 1
+      const diffTime = end - start;
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+      daysDisplay.textContent = diffDays;
+      daysHidden.value = diffDays;
+      saveBtn.disabled = false;
+    }
+
+    // Auto-refresh settings display after successful save
+    document.addEventListener('DOMContentLoaded', function () {
+      const form = document.getElementById('settings-form');
+      const saveBtn = document.getElementById('save-btn');
+      const startDateInput = document.getElementById('start_date');
+      const endDateInput = document.getElementById('end_date');
+
+      // Calculate days on page load if dates are present
+      calculateDays();
+
+      // Recalculate days when either date changes
+      startDateInput.addEventListener('change', calculateDays);
+      endDateInput.addEventListener('change', calculateDays);
+
+      // Handle form submission - show loading immediately
+      if (form && saveBtn) {
+        form.addEventListener('submit', function (e) {
+          // Show loading state immediately
+          saveBtn.disabled = true;
+          saveBtn.innerHTML = '💾 Saving...';
+          saveBtn.style.opacity = '0.7';
+        });
+      }
+
+      // If there's a success message, the form was just submitted successfully
+      const successMsg = document.getElementById('success-message') || document.getElementById('flash-message');
+      if (successMsg && successMsg.textContent.includes('✅')) {
+        // Settings were just updated - refresh the page data after a short delay
+        // This ensures any dependent views get fresh data
+        console.log('Settings updated successfully. System will use new values immediately.');
+
+        // Optional: Trigger a refresh of other open tabs/windows via localStorage event
+        if (typeof (Storage) !== "undefined") {
+          localStorage.setItem('settings_updated', Date.now().toString());
+          localStorage.removeItem('settings_updated'); // Clean up
+        }
+      }
+
+      // Handle form submission
+      form.addEventListener('submit', function (e) {
+        // Validate date range before submission
+        const startDate = startDateInput.value;
+        const endDate = endDateInput.value;
+
+        if (!startDate || !endDate) {
+          e.preventDefault();
+          alert('Please select both start and end dates.');
+          return;
+        }
+
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+
+        if (end < start) {
+          e.preventDefault();
+          alert('End date must be greater than or equal to start date.');
+          return;
+        }
+
+        // Ensure days is calculated
+        calculateDays();
+        const days = document.getElementById('days').value;
+        if (!days || parseInt(days) < 1) {
+          e.preventDefault();
+          alert('Invalid date range. Please select valid start and end dates.');
+          return;
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.textContent = '💾 Saving...';
+        // Form will submit normally, page will reload with updated values
+      });
+    });
+
+    // Listen for settings updates from other tabs
+    window.addEventListener('storage', function (e) {
+      if (e.key === 'settings_updated') {
+        // Reload page to get fresh settings
+        window.location.reload();
+      }
+    });
+
+    // Delete Bookings by Date Functionality
+    async function handleDeleteBookings() {
+      const deleteDate = document.getElementById('deleteDate').value;
+      const deleteBtn = document.getElementById('delete-btn');
+      const resultDiv = document.getElementById('delete-result');
+
+      if (!deleteDate) {
+        showDeleteResult('Please select a date first.', 'error');
+        return;
+      }
+
+      // Confirmation dialog
+      const confirmed = confirm(
+        `⚠️ WARNING: This will permanently delete ALL bookings for ${deleteDate}.\n\n` +
+        `This action cannot be undone. Are you absolutely sure you want to proceed?`
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      // Double confirmation for safety
+      const doubleConfirm = confirm(
+        `Final confirmation: Delete all bookings for ${deleteDate}?\n\n` +
+        `Click OK to proceed with deletion.`
+      );
+
+      if (!doubleConfirm) {
+        return;
+      }
+
+      // Disable button and show loading state
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = '⏳ Deleting...';
+      deleteBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      resultDiv.classList.add('hidden');
+
+      try {
+        const response = await fetch(`/admin/delete_bookings_by_date?date=${deleteDate}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          showDeleteResult(data.message || `Successfully deleted bookings for ${deleteDate}`, 'success');
+          // Clear the date input
+          document.getElementById('deleteDate').value = '';
+
+          // Trigger refresh for dashboard if open in another tab
+          if (typeof (Storage) !== "undefined") {
+            localStorage.setItem('bookings_deleted', JSON.stringify({ date: deleteDate, timestamp: Date.now() }));
+            // Remove after a short delay to allow other tabs to catch it
+            setTimeout(() => localStorage.removeItem('bookings_deleted'), 100);
+          }
+        } else {
+          showDeleteResult(data.error || data.message || 'Failed to delete bookings', 'error');
+        }
+      } catch (error) {
+        showDeleteResult('Error: ' + error.message, 'error');
+      } finally {
+        // Re-enable button
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = '🗑️ Delete Bookings';
+        deleteBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    }
+
+    // New: Delete Records by Date Range
+    function openDeleteModal() {
+      const from = document.getElementById('del_from').value;
+      const to = document.getElementById('del_to').value;
+      const statusSelect = document.getElementById('del_status');
+      const statusText = statusSelect.options[statusSelect.selectedIndex].text;
+
+      if (!from || !to) {
+        alert('Please select both From and To dates.');
+        return;
+      }
+      if (new Date(from) > new Date(to)) {
+        alert('From Date must not be later than To Date.');
+        return;
+      }
+      document.getElementById('modal-from').textContent = from;
+      document.getElementById('modal-to').textContent = to;
+      document.getElementById('modal-status').textContent = statusText;
+      document.getElementById('delete-modal').classList.remove('hidden');
+      document.getElementById('delete-modal').classList.add('flex');
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('delete-modal').classList.add('hidden');
+      document.getElementById('delete-modal').classList.remove('flex');
+    }
+
+    async function confirmDeleteRange() {
+      const from = document.getElementById('del_from').value;
+      const to = document.getElementById('del_to').value;
+      const status = document.getElementById('del_status').value;
+      const resultDiv = document.getElementById('delete-range-result');
+      const btn = document.getElementById('confirm-delete-range');
+      btn.disabled = true;
+      btn.textContent = '⏳ Deleting...';
+
+      try {
+        const res = await fetch('/admin/delete_records_by_date_range', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from: from, to: to, status: status })
+        });
+        const json = await res.json();
+        if (res.ok) {
+          resultDiv.className = 'mt-4 p-3 rounded bg-green-100 text-green-800 border border-green-300';
+          resultDiv.textContent = json.message || `Deleted ${json.deleted_count} records.`;
+          document.getElementById('del_from').value = '';
+          document.getElementById('del_to').value = '';
+          // close modal
+          closeDeleteModal();
+        } else {
+          resultDiv.className = 'mt-4 p-3 rounded bg-red-100 text-red-800 border border-red-300';
+          resultDiv.textContent = json.error || json.message || 'Deletion failed';
+        }
+      } catch (err) {
+        resultDiv.className = 'mt-4 p-3 rounded bg-red-100 text-red-800 border border-red-300';
+        resultDiv.textContent = 'Error: ' + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Yes, Delete';
+        resultDiv.classList.remove('hidden');
+        setTimeout(() => { resultDiv.classList.add('hidden'); }, 7000);
+      }
+    }
+
+    function showDeleteResult(message, type) {
+      const resultDiv = document.getElementById('delete-result');
+      resultDiv.className = `mt-4 p-3 rounded ${type === 'success'
+        ? 'bg-green-100 text-green-800 border border-green-300'
+        : 'bg-red-100 text-red-800 border border-red-300'
+        }`;
+      resultDiv.textContent = message;
+      resultDiv.classList.remove('hidden');
+
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        resultDiv.classList.add('hidden');
+      }, 5000);
+    }
+
+    // ==========================================
+    // ⚡ More Settings Toggle (Supreme Admin)
+    // ==========================================
+    function toggleMoreSettings() {
+      const container = document.getElementById('more-settings-container');
+      const textEl = document.getElementById('more-settings-text');
+      const arrowEl = document.getElementById('more-settings-arrow');
+      if (!container) return;
+
+      const isHidden = container.classList.contains('hidden');
+      if (isHidden) {
+        container.classList.remove('hidden');
+        if (textEl) textEl.textContent = 'Hide More Settings';
+        if (arrowEl) arrowEl.textContent = '▲';
+        const immDateInput = document.getElementById('imm_date');
+        if (immDateInput && immDateInput.value) {
+          loadSlotsForDate(immDateInput.value);
+        }
+      } else {
+        container.classList.add('hidden');
+        if (textEl) textEl.textContent = 'Show More Settings';
+        if (arrowEl) arrowEl.textContent = '▼';
+      }
+    }
+
+    // ==========================================
+    // ⚡ Immediate Slot Creation (Supreme Admin)
+    // ==========================================
+    async function createImmediateSlot() {
+      const dateInput = document.getElementById('imm_date');
+      const slotInput = document.getElementById('imm_slot');
+      const btn = document.getElementById('imm-create-btn');
+
+      if (!dateInput || !slotInput || !btn) return;
+
+      const dateVal = (dateInput.value || '').trim();
+      const slotVal = (slotInput.value || '').trim();
+
+      if (!dateVal) {
+        showImmResult('Please select a filter date.', 'error');
+        dateInput.focus();
+        return;
+      }
+      if (!slotVal) {
+        showImmResult('Please enter a slot name (e.g. 5:00pm).', 'error');
+        slotInput.focus();
+        return;
+      }
+
+      btn.disabled = true;
+      const originalHTML = btn.innerHTML;
+      btn.innerHTML = '<span class="text-amber-300">⏳</span><span>Creating...</span>';
+
+      try {
+        const res = await fetch('/admin/create_immediate_slot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date: dateVal, slot: slotVal })
+        });
+        const json = await res.json();
+        if (res.ok && json.success) {
+          showImmResult(json.message || `Immediate slot '${slotVal}' successfully created for ${dateVal}!`, 'success');
+          slotInput.value = '';
+          loadSlotsForDate(dateVal);
+        } else {
+          showImmResult(json.error || json.message || 'Failed to create immediate slot.', 'error');
+        }
+      } catch (err) {
+        showImmResult('Network error: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+      }
+    }
+
+    function showImmResult(msg, type) {
+      const resultDiv = document.getElementById('imm-slot-result');
+      if (!resultDiv) return;
+      if (type === 'success') {
+        resultDiv.className = 'mb-4 p-3 rounded-lg text-sm bg-green-100 border border-green-300 text-green-900 font-medium';
+      } else {
+        resultDiv.className = 'mb-4 p-3 rounded-lg text-sm bg-red-100 border border-red-300 text-red-900 font-medium';
+      }
+      resultDiv.textContent = msg;
+      resultDiv.classList.remove('hidden');
+      setTimeout(() => {
+        resultDiv.classList.add('hidden');
+      }, 7000);
+    }
+
+    async function loadSlotsForDate(dateVal) {
+      const activeDateEl = document.getElementById('imm-active-date');
+      const countEl = document.getElementById('imm-slot-count');
+      const pillsEl = document.getElementById('imm-slots-pills');
+      if (!pillsEl) return;
+
+      if (!dateVal) {
+        const dateInput = document.getElementById('imm_date');
+        if (dateInput && dateInput.value) {
+          dateVal = dateInput.value;
+        }
+      }
+
+      if (activeDateEl) {
+        activeDateEl.textContent = dateVal || '-';
+      }
+
+      if (!dateVal) {
+        pillsEl.innerHTML = '<span class="text-xs text-gray-400 italic">Select a date to view active slots</span>';
+        if (countEl) countEl.textContent = '(0 slots)';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/admin/immediate_slots?date=${encodeURIComponent(dateVal)}&_t=${Date.now()}`);
+        if (!res.ok) {
+          pillsEl.innerHTML = '<span class="text-xs text-red-500">Failed to load slots</span>';
+          return;
+        }
+        const data = await res.json();
+        const defaultSlots = data.default_slots || [];
+        const immSlots = data.slots || [];
+        const totalSlots = defaultSlots.length + immSlots.length;
+
+        if (countEl) {
+          countEl.textContent = `(${totalSlots} slot${totalSlots === 1 ? '' : 's'})`;
+        }
+
+        if (totalSlots === 0) {
+          pillsEl.innerHTML = '<span class="text-xs text-gray-400 italic">No slots available for this date</span>';
+          return;
+        }
+
+        let html = '';
+
+        // Render default slots first
+        defaultSlots.forEach(slot => {
+          html += `
+            <div class="px-3.5 py-1.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-800 font-medium flex items-center shadow-xs">
+              <span>${slot}</span>
+              <span class="text-gray-400 text-xs font-normal ml-1.5">(Default)</span>
+            </div>
+          `;
+        });
+
+        // Render immediate slots
+        immSlots.forEach(s => {
+          html += `
+            <div class="px-3.5 py-1.5 bg-amber-50 border border-amber-300 rounded-lg text-sm text-amber-950 font-semibold flex items-center gap-1.5 shadow-xs">
+              <span class="text-amber-500">⚡</span>
+              <span>${s.slot}</span>
+              <button type="button" 
+                onclick="deleteImmediateSlot('${s.id}', '${s.date}', '${s.slot}')" 
+                class="ml-1 text-amber-800 hover:text-red-600 font-bold text-xs hover:bg-amber-100 rounded px-1 transition" 
+                title="Remove immediate slot">
+                ✕
+              </button>
+            </div>
+          `;
+        });
+
+        pillsEl.innerHTML = html;
+      } catch (err) {
+        pillsEl.innerHTML = `<span class="text-xs text-red-500">Error loading slots: ${err.message}</span>`;
+      }
+    }
+
+    async function deleteImmediateSlot(id, date, slot) {
+      if (!confirm(`Are you sure you want to remove immediate slot '${slot}' for ${date}?\nThis will remove the slot and clean up empty rafts.`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch('/admin/delete_immediate_slot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: id, date: date, slot: slot })
+        });
+        const json = await res.json();
+        if (res.ok && json.success) {
+          showImmResult(json.message || `Immediate slot '${slot}' on ${date} deleted successfully.`, 'success');
+          loadSlotsForDate(date);
+        } else {
+          showImmResult(json.error || json.message || 'Failed to delete slot.', 'error');
+        }
+      } catch (err) {
+        showImmResult('Network error: ' + err.message, 'error');
+      }
+    }
+
+    // Initialize immediate slots date picker & chips
+    const immDateInput = document.getElementById('imm_date');
+    if (immDateInput) {
+      if (!immDateInput.value) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        immDateInput.value = `${year}-${month}-${day}`;
+      }
+      immDateInput.addEventListener('change', function () {
+        loadSlotsForDate(this.value);
+      });
+      loadSlotsForDate(immDateInput.value);
+
+      const immSlotInput = document.getElementById('imm_slot');
+      if (immSlotInput) {
+        immSlotInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            createImmediateSlot();
+          }
+        });
+      }
+    }
+  </script>
+  {% endblock %}
