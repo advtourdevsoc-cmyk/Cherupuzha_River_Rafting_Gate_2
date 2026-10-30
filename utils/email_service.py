@@ -398,7 +398,7 @@ def send_booking_email(booking, is_success=True):
                     </div>
                     
                     <div class="section" style="text-align: center;">
-                        <a href="https://cherupuzhariverrafting.in/book" class="button">🔄 Retry Your Booking Now</a>
+                        <a href="https://cherupuzhariverrafting.co.in/book" class="button">🔄 Retry Your Booking Now</a>
                     </div>
                     
                     <div class="contact-section">
@@ -1002,7 +1002,7 @@ def send_coupon_email(recipient_email, coupon_code, discount_type, discount_valu
                 <div class="steps">
                     <strong style="color: #0f766e;">How to Redeem:</strong>
                     <ol>
-                        <li>Go to our <a href="https://cherupuzhariverrafting.in/book" style="color: #0d9488; font-weight: 600; text-decoration: underline;">booking page</a> or click the button below.</li>
+                        <li>Go to our <a href="https://cherupuzhariverrafting.co.in/book" style="color: #0d9488; font-weight: 600; text-decoration: underline;">booking page</a> or click the button below.</li>
                         <li>Enter your registered email ID, phone number, and group size.</li>
                         <li>The <strong>Coupon Code</strong> box will automatically appear.</li>
                         <li>The coupon will expire within 12 hours.</li>
@@ -1010,7 +1010,7 @@ def send_coupon_email(recipient_email, coupon_code, discount_type, discount_valu
                 </div>
 
                 <div class="btn-container">
-                    <a href="https://cherupuzhariverrafting.in/book" class="btn">🚣 Book Now & Redeem Coupon</a>
+                    <a href="https://cherupuzhariverrafting.co.in/book" class="btn">🚣 Book Now & Redeem Coupon</a>
                 </div>
 
                 <p style="margin-top: 25px;">We look forward to giving you an unforgettable rafting experience! 🌊</p>
