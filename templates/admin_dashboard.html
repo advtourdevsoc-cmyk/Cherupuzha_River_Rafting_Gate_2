@@ -151,6 +151,8 @@
             <th class="px-4 py-2 border">Group Size</th>
             <th class="px-4 py-2 border">Rafts</th>
             <th class="px-4 py-2 border">Payment Status</th>
+            <th class="px-4 py-2 border">Per Person Amount</th>
+            <th class="px-4 py-2 border">Total Amount</th>
             <th class="px-4 py-2 border">Advance</th>
             <th class="px-4 py-2 border">Balance Amount</th>
             <th class="px-4 py-2 border">Status</th>
@@ -199,6 +201,12 @@
               {{ b.payment_status_display or 'Not paid' }}
             </td>
             <td class="border px-4 py-2">
+              ₹{{ "%.2f"|format((b.per_person_amount or 0)|float) }}
+            </td>
+            <td class="border px-4 py-2">
+              ₹{{ "%.2f"|format((b.total_amount or 0)|float) }}
+            </td>
+            <td class="border px-4 py-2">
               <div>₹{{ "%.2f"|format((b.advance_amount or 0)|float) }}</div>
               {% if c_disc and c_disc|float > 0 %}
               <div class="text-xs text-emerald-700 font-semibold" title="Coupon discount applied">
@@ -219,7 +227,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="11" class="text-center py-4 text-gray-500">No confirmed bookings for today.</td>
+            <td colspan="15" class="text-center py-4 text-gray-500">No confirmed bookings for today.</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -240,6 +248,8 @@
             <th class="px-4 py-2 border">Group Size</th>
             <th class="px-4 py-2 border">Rafts</th>
             <th class="px-4 py-2 border">Payment Status</th>
+            <th class="px-4 py-2 border">Per Person Amount</th>
+            <th class="px-4 py-2 border">Total Amount</th>
             <th class="px-4 py-2 border">Advance</th>
             <th class="px-4 py-2 border">Balance Amount</th>
             <th class="px-4 py-2 border">Status</th>
@@ -288,6 +298,12 @@
               {{ b.payment_status_display or 'Not paid' }}
             </td>
             <td class="border px-4 py-2">
+              ₹{{ "%.2f"|format((b.per_person_amount or 0)|float) }}
+            </td>
+            <td class="border px-4 py-2">
+              ₹{{ "%.2f"|format((b.total_amount or 0)|float) }}
+            </td>
+            <td class="border px-4 py-2">
               <div>₹{{ "%.2f"|format((b.advance_amount or 0)|float) }}</div>
               {% if c_disc and c_disc|float > 0 %}
               <div class="text-xs text-emerald-700 font-semibold" title="Coupon discount applied">
@@ -308,7 +324,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="11" class="text-center py-4 text-gray-500">No confirmed bookings for tomorrow.</td>
+            <td colspan="15" class="text-center py-4 text-gray-500">No confirmed bookings for tomorrow.</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -339,6 +355,8 @@
             <th class="px-4 py-2 border">Group Size</th>
             <th class="px-4 py-2 border">Rafts</th>
             <th class="px-4 py-2 border">Payment Status</th>
+            <th class="px-4 py-2 border">Per Person Amount</th>
+            <th class="px-4 py-2 border">Total Amount</th>
             <th class="px-4 py-2 border">Advance</th>
             <th class="px-4 py-2 border">Balance Amount</th>
             <th class="px-4 py-2 border">Status</th>
@@ -391,6 +409,12 @@
               {% else %}
               {{ b.payment_status_display or 'Not paid' }}
               {% endif %}
+            </td>
+            <td class="border px-4 py-2">
+              ₹{{ "%.2f"|format((b.per_person_amount or 0)|float) }}
+            </td>
+            <td class="border px-4 py-2">
+              ₹{{ "%.2f"|format((b.total_amount or 0)|float) }}
             </td>
             <td class="border px-4 py-2">
               {% if b.status == 'Visited' or b.status == 'visited' %}
@@ -1387,6 +1411,8 @@
         'Slot',
         'Group Size',
         'Payment',
+        'Per Person (₹)',
+        'Total (₹)',
         'Coupon',
         'Advance (₹)',
         'Balance (₹)',
@@ -1403,6 +1429,8 @@
         b.slot || '-',
         b.group_size || '-',
         b.payment_status || 'Not paid',
+        b.per_person_amount ? `${b.per_person_amount}` : '0.00',
+        b.total_amount ? `${b.total_amount}` : '0.00',
         b.coupon_code ? b.coupon_code : '-',
         (b.status && b.status.toLowerCase() === 'visited') ? '—' : (b.coupon_discount && parseFloat(b.coupon_discount) > 0 ? `${b.advance} (-₹${b.coupon_discount})` : (b.advance || '0.00')),
         (b.status && b.status.toLowerCase() === 'visited') ? '—' : (b.balance || '0.00'),
@@ -1433,19 +1461,21 @@
             fontSize: 8
           },
           columnStyles: {
-            0: { halign: 'center', cellWidth: 12 }, // Sl No
-            1: { halign: 'left', cellWidth: 26 },   // Name
-            2: { halign: 'center', cellWidth: 24 }, // Phone
-            3: { halign: 'left', cellWidth: 34 },   // Email
-            4: { halign: 'left', cellWidth: 24 },   // Location
-            5: { halign: 'center', cellWidth: 18 }, // Date
-            6: { halign: 'center', cellWidth: 16 }, // Slot
-            7: { halign: 'center', cellWidth: 16 }, // Group Size
-            8: { halign: 'center', cellWidth: 16 }, // Payment Status
-            9: { halign: 'center', cellWidth: 20 }, // Coupon Code
-            10: { halign: 'right', cellWidth: 22 },  // Advance
-            11: { halign: 'right', cellWidth: 18 }, // Balance
-            12: { halign: 'center', cellWidth: 16 } // Status
+            0: { halign: 'center', cellWidth: 10 }, // Sl No
+            1: { halign: 'left', cellWidth: 23 },   // Name
+            2: { halign: 'center', cellWidth: 21 }, // Phone
+            3: { halign: 'left', cellWidth: 28 },   // Email
+            4: { halign: 'left', cellWidth: 18 },   // Location
+            5: { halign: 'center', cellWidth: 17 }, // Date
+            6: { halign: 'center', cellWidth: 14 }, // Slot
+            7: { halign: 'center', cellWidth: 13 }, // Group Size
+            8: { halign: 'center', cellWidth: 14 }, // Payment Status
+            9: { halign: 'right', cellWidth: 18 },  // Per Person (₹)
+            10: { halign: 'right', cellWidth: 18 }, // Total (₹)
+            11: { halign: 'center', cellWidth: 16 }, // Coupon Code
+            12: { halign: 'right', cellWidth: 19 }, // Advance
+            13: { halign: 'right', cellWidth: 19 }, // Balance
+            14: { halign: 'center', cellWidth: 15 } // Status
           },
           alternateRowStyles: { fillColor: [245, 248, 250] },
           margin: { left: 14, right: 14, top: 28 }
@@ -1592,6 +1622,8 @@
         'Time Slot',
         'Group Size',
         'Payment Status',
+        'Per Person Amount (₹)',
+        'Total Amount (₹)',
         'Coupon Code',
         'Coupon Discount (₹)',
         'Advance Paid (₹)',
@@ -1602,6 +1634,7 @@
       sheetData.push(headers);
 
       let totalGroupSize = 0;
+      let totalBookingAmount = 0;
       let totalAdvance = 0;
       let totalBalance = 0;
       let totalDiscount = 0;
@@ -1613,6 +1646,10 @@
           const isVisited = b.status && b.status.toLowerCase() === 'visited';
           const gs = parseInt(b.group_size) || 0;
           totalGroupSize += gs;
+
+          const perPersonVal = parseFloat(b.per_person_amount) || 0;
+          const totAmtVal = parseFloat(b.total_amount) || 0;
+          totalBookingAmount += totAmtVal;
 
           let advVal = 0;
           let balVal = 0;
@@ -1635,6 +1672,8 @@
             b.slot || '-',
             gs,
             b.payment_status || 'Not paid',
+            perPersonVal,
+            totAmtVal,
             b.coupon_code || '-',
             discVal,
             isVisited ? '—' : advVal,
@@ -1655,6 +1694,8 @@
           '',
           totalGroupSize,
           '',
+          '',
+          totalBookingAmount,
           '',
           totalDiscount,
           totalAdvance,

@@ -74,6 +74,7 @@ def create_booking(
         # Store platform fee and price amount for fast confirmation page loads
         "platform_fee": booking_details.get("platform_fee", 0),
         "price_amount": booking_details.get("price_amount", 0),
+        "amount_per_person": booking_details.get("amount_per_person"),
         "is_admin_booking": bool(booking_details.get("is_admin_booking", False)),
     }
     return db.bookings.insert_one(booking).inserted_id

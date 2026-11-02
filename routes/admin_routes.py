@@ -169,11 +169,11 @@ def dashboard():
             # Use stored pricing to prevent settings changes from modifying existing bookings
             total = b.get('amount') or b.get('total_amount')
             advance = b.get('advance_amount')
+            try:
+                gs_val = int(b.get('group_size', 0) or 0)
+            except (ValueError, TypeError):
+                gs_val = 0
             if advance is None or total is None:
-                try:
-                    gs_val = int(b.get('group_size', 0) or 0)
-                except (ValueError, TypeError):
-                    gs_val = 0
                 amt = calculate_total_amount(settings, b.get('date'), gs_val)
                 total = total if total is not None else amt.get('total_amount', 0)
                 advance = advance if advance is not None else amt.get('advance_amount', 0)
@@ -185,6 +185,15 @@ def dashboard():
             advance_val = float(advance if advance is not None else 0)
             b['total_amount'] = total_val
             b['advance_amount'] = advance_val
+
+            per_person = b.get('amount_per_person') or b.get('booking_details', {}).get('amount_per_person')
+            if per_person is None:
+                amt_calc = calculate_total_amount(settings, b.get('date'), gs_val)
+                per_person = amt_calc.get('applicable_amount', 0)
+                if (not per_person or float(per_person) == 0) and gs_val > 0 and total_val > 0:
+                    per_person = round(total_val / gs_val, 2)
+            b['per_person_amount'] = float(per_person or 0)
+
             paid = str(b.get('payment_status', '')).lower() == 'paid'
             b['payment_status_display'] = 'Paid' if paid else 'Not paid'
             if b.get('balance_amount') is not None:
@@ -200,11 +209,11 @@ def dashboard():
             b['is_admin_booking'] = bool(b.get('is_admin_booking') or b.get('booking_details', {}).get('is_admin_booking'))
             total = b.get('amount') or b.get('total_amount')
             advance = b.get('advance_amount')
+            try:
+                gs_val = int(b.get('group_size', 0) or 0)
+            except (ValueError, TypeError):
+                gs_val = 0
             if advance is None or total is None:
-                try:
-                    gs_val = int(b.get('group_size', 0) or 0)
-                except (ValueError, TypeError):
-                    gs_val = 0
                 amt = calculate_total_amount(settings, b.get('date'), gs_val)
                 total = total if total is not None else amt.get('total_amount', 0)
                 advance = advance if advance is not None else amt.get('advance_amount', 0)
@@ -216,6 +225,15 @@ def dashboard():
             advance_val = float(advance if advance is not None else 0)
             b['total_amount'] = total_val
             b['advance_amount'] = advance_val
+
+            per_person = b.get('amount_per_person') or b.get('booking_details', {}).get('amount_per_person')
+            if per_person is None:
+                amt_calc = calculate_total_amount(settings, b.get('date'), gs_val)
+                per_person = amt_calc.get('applicable_amount', 0)
+                if (not per_person or float(per_person) == 0) and gs_val > 0 and total_val > 0:
+                    per_person = round(total_val / gs_val, 2)
+            b['per_person_amount'] = float(per_person or 0)
+
             paid = str(b.get('payment_status', '')).lower() == 'paid'
             b['payment_status_display'] = 'Paid' if paid else 'Not paid'
             if b.get('balance_amount') is not None:
@@ -324,11 +342,11 @@ def dashboard():
         # Compute pricing and balance per booking for admin table / export
         total = booking.get('amount') or booking.get('total_amount')
         advance = booking.get('advance_amount')
+        try:
+            gs_val = int(booking.get('group_size', 0) or 0)
+        except (ValueError, TypeError):
+            gs_val = 0
         if advance is None or total is None:
-            try:
-                gs_val = int(booking.get('group_size', 0) or 0)
-            except (ValueError, TypeError):
-                gs_val = 0
             amt = calculate_total_amount(settings, booking.get('date'), gs_val)
             total = total if total is not None else amt.get('total_amount', 0)
             advance = advance if advance is not None else amt.get('advance_amount', 0)
@@ -340,6 +358,15 @@ def dashboard():
         advance_val = float(advance if advance is not None else 0)
         booking['total_amount'] = total_val
         booking['advance_amount'] = advance_val
+
+        per_person = booking.get('amount_per_person') or booking.get('booking_details', {}).get('amount_per_person')
+        if per_person is None:
+            amt_calc = calculate_total_amount(settings, booking.get('date'), gs_val)
+            per_person = amt_calc.get('applicable_amount', 0)
+            if (not per_person or float(per_person) == 0) and gs_val > 0 and total_val > 0:
+                per_person = round(total_val / gs_val, 2)
+        booking['per_person_amount'] = float(per_person or 0)
+
         paid = str(booking.get('payment_status', '')).lower() == 'paid'
         b_status = str(booking.get('status', '')).strip().lower()
         if b_status == 'visited':
@@ -443,11 +470,11 @@ def api_export_bookings():
         for b in bookings:
             total = b.get('amount') or b.get('total_amount')
             advance = b.get('advance_amount')
+            try:
+                gs_val = int(b.get('group_size', 0) or 0)
+            except (ValueError, TypeError):
+                gs_val = 0
             if advance is None or total is None:
-                try:
-                    gs_val = int(b.get('group_size', 0) or 0)
-                except (ValueError, TypeError):
-                    gs_val = 0
                 amt = calculate_total_amount(settings, b.get('date'), gs_val)
                 total = total if total is not None else amt.get('total_amount', 0)
                 advance = advance if advance is not None else amt.get('advance_amount', 0)
@@ -459,6 +486,14 @@ def api_export_bookings():
                 balance_val = float(b.get('balance_amount'))
             else:
                 balance_val = max(total_val - advance_val, 0) if paid else total_val
+
+            per_person = b.get('amount_per_person') or b.get('booking_details', {}).get('amount_per_person')
+            if per_person is None:
+                amt_calc = calculate_total_amount(settings, b.get('date'), gs_val)
+                per_person = amt_calc.get('applicable_amount', 0)
+                if (not per_person or float(per_person) == 0) and gs_val > 0 and total_val > 0:
+                    per_person = round(total_val / gs_val, 2)
+            per_person_val = float(per_person or 0)
 
             coupon_code = str(b.get('coupon_code') or b.get('booking_details', {}).get('coupon_code') or '')
             coupon_discount = float(b.get('coupon_discount_applied') or b.get('booking_details', {}).get('coupon_discount_applied') or 0)
@@ -482,6 +517,8 @@ def api_export_bookings():
                 'slot': str(b.get('slot') or '-'),
                 'group_size': str(b.get('group_size', '-')),
                 'payment_status': p_status_display,
+                'per_person_amount': f"{per_person_val:.2f}",
+                'total_amount': f"{total_val:.2f}",
                 'advance': adv_display,
                 'balance': bal_display,
                 'status': b_status_str,
